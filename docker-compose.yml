@@ -1,0 +1,79 @@
+services:
+  # ── PostgreSQL (Outline uniquement — auth utilise SQLite) ──
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD}
+      OUTLINE_DB_PASSWORD: ${OUTLINE_DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis (cache Outline) ──
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── auth (IdP maison : OIDC + UI admin pour gérer les users) ──
+  auth:
+    build: ./auth
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    volumes:
+      - auth-data:/app/data
+    environment:
+      PORT: 4000
+      # URL publique (navigateur). En prod : https://auth.example.com
+      PUBLIC_URL: ${AUTH_PUBLIC_URL}
+      # Secrets (32 bytes hex chacun)
+      SESSION_SECRET: ${AUTH_SESSION_SECRET}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ── Outline (wiki) ──
+  outline:
+    image: docker.getoutline.com/outlinewiki/outline:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    env_file: ./.env
+    volumes:
+      - outline-data:/var/lib/outline/data
+    environment:
+      DATABASE_URL: postgres://outline_user:${OUTLINE_DB_PASSWORD}@postgres:5432/outline
+      # OIDC — split externe/interne :
+      #   AUTH/LOGOUT  → URL publique (le navigateur y est redirigé)
+      #   TOKEN/USERINFO → URL interne (Outline appelle auth direct dans le réseau docker)
+      OIDC_AUTH_URI:     ${AUTH_PUBLIC_URL}/auth
+      OIDC_LOGOUT_URI:   ${AUTH_PUBLIC_URL}/session/end
+      OIDC_TOKEN_URI:    http://auth:4000/token
+      OIDC_USERINFO_URI: http://auth:4000/me
+
+volumes:
+  postgres-data:
+  outline-data:
+  auth-data:
