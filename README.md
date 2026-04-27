@@ -1,95 +1,115 @@
-# Outline + Simple SSO
+# Simple SSO
 
-Wiki **Outline** + IdP OIDC maison, 100% Docker, zéro dépendance externe.
+**The simplest SSO possible.** A self-hosted OIDC IdP that fits in a single `docker compose up`. No three-day Keycloak setup, no Postgres to provision just for auth, no 400-line YAML. A clean admin UI to manage users, client applications, branding and audit logs. That's it.
 
-## Démarrage
+Deliberately minimalist stack: SQLite for the IdP, zero external dependencies, built for small teams and internal deployments that want SSO without the complexity.
 
-**1. Remplir les secrets dans `.env`**
+Simple SSO was originally built to plug SSO into **Outline**, which is why the wiki ships in this repo as the reference integration: it doubles as the use case that drove the development and as an end-to-end test of the OIDC flow. You can drop it or replace it with any OIDC-compatible app.
+
+## What Simple SSO provides
+
+- Standard OIDC endpoints: `/auth`, `/token`, `/me`, `/session/end`, `.well-known/openid-configuration`
+- Admin UI (port `4000`): users, OIDC clients, branding, settings, audit
+- Local SQLite storage (`auth-data`), no Postgres required for the IdP
+- Secure sessions (`Secure` cookies auto-enabled over HTTPS)
+
+## Getting started
+
+**1. Fill in the secrets in `.env`**
 
 ```bash
 openssl rand -hex 32   # SECRET_KEY, UTILS_SECRET, AUTH_SESSION_SECRET
-openssl rand -hex 16   # POSTGRES_ADMIN_PASSWORD, OUTLINE_DB_PASSWORD
+openssl rand -hex 16   # OUTLINE_DB_PASSWORD
 ```
 
-**2. Lancer**
+**2. Start it up**
 
 ```bash
 docker compose up -d
 ```
 
-**3. Créer ton compte admin**
+**3. Create the admin account**
 
-Va sur **http://localhost:4000** → écran d'initialisation → choisis un identifiant et un mot de passe fort. Tu es auto-connecté.
+Open **http://localhost:4000**, the setup screen will prompt you for a username and a strong password. You're auto-logged in.
 
-**4. Créer le client OIDC**
+**4. Register a client application**
 
-Dans l'admin : **Applications → + Nouvelle** :
+In the admin: **Applications, + New**. Example for the bundled Outline integration:
 
-| Champ         | Valeur                                     |
+| Field         | Value                                      |
 |---------------|--------------------------------------------|
 | Client ID     | `outline`                                  |
 | Redirect URIs | `http://localhost:3000/auth/oidc.callback` |
 | Post Logout   | `http://localhost:3000`                    |
 
-Copie le **Client Secret** (affiché une seule fois) dans `.env` :
+Copy the **Client Secret** (shown only once) into `.env`:
 
 ```env
 OIDC_CLIENT_ID=outline
-OIDC_CLIENT_SECRET=<le secret>
+OIDC_CLIENT_SECRET=<the secret>
 ```
 
-Puis :
+Then:
 
 ```bash
 docker compose up -d --force-recreate outline
 ```
 
-**5. Créer les users**
+**5. Create users**
 
-Dans l'admin : **Utilisateurs → + Nouveau**. Ils se connectent ensuite sur Outline via "Continue with Simple SSO".
+In the admin: **Users, + New**. They then sign in to the client app via the SSO button.
 
-C'est fini. Wiki : **http://localhost:3000**
+End-to-end test: **http://localhost:3000** (Outline), click "Continue with Simple SSO".
 
 ---
 
-## Exposer en public (vraies URLs)
+## Integrating another application
 
-Si tu déploies sur un domaine public, remplace les URLs locales par tes URLs publiques **partout** :
+Any standard OIDC client works. Give it:
 
-Dans `.env` :
+- **Issuer / Discovery**: `${AUTH_PUBLIC_URL}/.well-known/openid-configuration`
+- **Client ID / Secret**: shown when you create the client in the admin
+- **Scopes**: `openid profile email`
+
+Then add the matching `Redirect URI` in the client's record.
+
+---
+
+## Going public
+
+On a public domain, replace local URLs **everywhere**:
+
+In `.env`:
 
 ```env
-URL=https://wiki.example.com
-FORCE_HTTPS=true
 AUTH_PUBLIC_URL=https://auth.example.com
+URL=https://wiki.example.com         # Outline side
+FORCE_HTTPS=true
 ```
 
-Dans le client OIDC (admin UI) :
+In the OIDC client (admin UI): update Redirect URIs and Post Logout with the public URLs.
 
-- Redirect URIs : `https://wiki.example.com/auth/oidc.callback`
-- Post Logout : `https://wiki.example.com`
-
-`AUTH_PUBLIC_URL` en `https://` active automatiquement le flag `Secure` sur les cookies.
+`AUTH_PUBLIC_URL` over `https://` automatically enables `Secure` on session cookies. In production, put a reverse proxy (Caddy/Traefik) in front and remove the exposed `ports:` from the compose file.
 
 ---
 
 ## URLs
 
-- Wiki : http://localhost:3000
-- Admin : http://localhost:4000
-- Apparence : http://localhost:4000/admin/branding
-- Paramètres : http://localhost:4000/admin/settings
-- Audit : http://localhost:4000/admin/audit
+- SSO admin: http://localhost:4000
+  - Branding: `/admin/branding`
+  - Settings: `/admin/settings`
+  - Audit: `/admin/audit`
+- Wiki (test integration): http://localhost:3000
 
 ## Maintenance
 
 ```bash
-docker compose logs -f              # voir les logs
-docker compose pull && docker compose up -d    # mettre à jour
-docker compose down -v && docker compose up -d # reset total (efface tout)
+docker compose logs -f                            # tail logs
+docker compose pull && docker compose up -d      # update
+docker compose down -v && docker compose up -d   # full reset (wipes everything)
 ```
 
-Admin a oublié son mdp — relancer le setup :
+Admin forgot their password, rerun setup:
 
 ```bash
 docker compose exec auth sqlite3 /app/data/auth.db \
@@ -97,11 +117,14 @@ docker compose exec auth sqlite3 /app/data/auth.db \
 docker compose restart auth
 ```
 
-Puis retourne sur http://localhost:4000 pour recréer l'admin.
+Then go back to http://localhost:4000 to recreate the admin.
 
 ## Backup
 
-Les données : volumes `postgres-data`, `outline-data`, `auth-data`.
+Volumes to back up:
+
+- `auth-data`: Simple SSO SQLite database (users, clients, audit, settings)
+- `postgres-data`, `outline-data`: only if you use the Outline integration
 
 ```bash
 docker exec getouline-auth-1 sh -c 'cp /app/data/auth.db /app/data/auth.db.bak'

@@ -18,6 +18,7 @@ export type AuditAction =
   | 'admin.group.member_remove'
   | 'admin.client.create'
   | 'admin.client.delete'
+  | 'admin.client.access_update'
   | 'admin.branding.update'
   | 'admin.settings.update'
   | 'admin.user.unlock'

@@ -17,7 +17,7 @@ import {
   clientBrandingPage, clientAccessPage, brandingPage, auditPage, settingsPage,
 } from '../views/admin.js';
 import { Access } from '../models/access.js';
-import { parseImageUpload } from '../lib/upload.js';
+import { parseImageUpload, uploadErrorMessage } from '../lib/upload.js';
 
 const LOGO_MIMES = ['image/png', 'image/jpeg', 'image/svg+xml'] as const;
 const BG_MIMES   = ['image/png', 'image/jpeg', 'image/webp'] as const;
@@ -550,19 +550,32 @@ adminRoutes.post('/clients/:id/access', async (c) => {
   }
   Clients.setHomeUrl(client.id, homeUrl);
 
-  const userIds = Array.isArray(body.users) ? body.users : (body.users ? [body.users] : []);
-  const groupIds = Array.isArray(body.groups) ? body.groups : (body.groups ? [body.groups] : []);
-  const principals = [
-    ...userIds.map((id: any) => ({ type: 'user' as const, id: String(id) })),
-    ...groupIds.map((id: any) => ({ type: 'group' as const, id: String(id) })),
-  ];
+  const rawUserIds = Array.isArray(body.users) ? body.users : (body.users ? [body.users] : []);
+  const rawGroupIds = Array.isArray(body.groups) ? body.groups : (body.groups ? [body.groups] : []);
+
+  // Valider que chaque principal_id existe avant insertion (anti-orphelin)
+  const principals: Array<{ type: 'user' | 'group'; id: string }> = [];
+  const skipped: { users: string[]; groups: string[] } = { users: [], groups: [] };
+  for (const id of rawUserIds.map((x: any) => String(x))) {
+    if (Users.findById(id)) principals.push({ type: 'user', id });
+    else skipped.users.push(id);
+  }
+  for (const id of rawGroupIds.map((x: any) => String(x))) {
+    if (Groups.findById(id)) principals.push({ type: 'group', id });
+    else skipped.groups.push(id);
+  }
+
   Access.set(client.id, principals);
 
   Audit.log({
     actorUserId: (c.get('user') as any).id,
-    action: 'admin.client.create',
+    action: 'admin.client.access_update',
     target: client.id,
-    metadata: { acl_count: principals.length, home_url: homeUrl },
+    metadata: {
+      acl_count: principals.length,
+      home_url: homeUrl,
+      ...(skipped.users.length || skipped.groups.length ? { skipped } : {}),
+    },
     ip: getClientIp(c),
   });
   return c.redirect(`/admin/clients/${client.id}/access?flash=saved`);
@@ -572,13 +585,16 @@ adminRoutes.post('/clients/:id/access', async (c) => {
 adminRoutes.get('/clients/:id/branding', (c) => {
   const client = Clients.findById(c.req.param('id'));
   if (!client) return c.notFound();
-  const flash = c.req.query('flash') === 'saved' ? 'Apparence enregistrée.' : null;
+  const flashRaw = c.req.query('flash') ?? '';
+  const flash = flashRaw === 'saved' ? 'Apparence enregistrée.' : null;
+  const error = flashRaw.startsWith('error:') ? decodeURIComponent(flashRaw.slice('error:'.length)) : null;
   return html(c, clientBrandingPage({
     user: navUser(c),
     csrfToken: c.get('csrfToken') as string,
     client: { id: client.id, name: client.name, redirect_uris: [], post_logout_uris: [], allowed_scopes: [], home_url: client.home_url ?? null, created_at: client.created_at },
     branding: Brand.getClient(client.id),
     flash,
+    error,
   }));
 });
 
@@ -606,17 +622,20 @@ adminRoutes.post('/clients/:id/branding', async (c) => {
     patch.background_opacity = null;
   }
 
+  const uploadErrors: string[] = [];
   if (body.remove_logo === '1') {
     patch.logo_data_url = null;
   } else {
-    const dataUrl = await parseImageUpload(body.logo, { allowedMimes: LOGO_MIMES });
-    if (dataUrl) patch.logo_data_url = dataUrl;
+    const r = await parseImageUpload(body.logo, { allowedMimes: LOGO_MIMES });
+    if (r.status === 'ok') patch.logo_data_url = r.dataUrl;
+    else { const e = uploadErrorMessage(r, 'Logo'); if (e) uploadErrors.push(e); }
   }
   if (body.remove_background === '1') {
     patch.background_data_url = null;
   } else {
-    const dataUrl = await parseImageUpload(body.background, { allowedMimes: BG_MIMES });
-    if (dataUrl) patch.background_data_url = dataUrl;
+    const r = await parseImageUpload(body.background, { allowedMimes: BG_MIMES });
+    if (r.status === 'ok') patch.background_data_url = r.dataUrl;
+    else { const e = uploadErrorMessage(r, 'Image de fond'); if (e) uploadErrors.push(e); }
   }
 
   Brand.updateClient(client.id, patch);
@@ -626,7 +645,8 @@ adminRoutes.post('/clients/:id/branding', async (c) => {
     target: client.id,
     ip: getClientIp(c),
   });
-  return c.redirect(`/admin/clients/${client.id}/branding?flash=saved`);
+  const flashKey = uploadErrors.length ? `error:${encodeURIComponent(uploadErrors.join(' / '))}` : 'saved';
+  return c.redirect(`/admin/clients/${client.id}/branding?flash=${flashKey}`);
 });
 
 adminRoutes.post('/clients/:id/delete', async (c) => {
@@ -647,10 +667,15 @@ adminRoutes.post('/clients/:id/delete', async (c) => {
 
 // ── Branding ──────────────────────────────────────────────────────
 adminRoutes.get('/branding', (c) => {
+  const flashRaw = c.req.query('flash') ?? '';
+  const flash = flashRaw === 'saved' ? 'Apparence enregistrée.' : null;
+  const error = flashRaw.startsWith('error:') ? decodeURIComponent(flashRaw.slice('error:'.length)) : null;
   return html(c, brandingPage({
     user: navUser(c),
     csrfToken: c.get('csrfToken') as string,
     branding: Brand.get(),
+    flash,
+    error,
   }));
 });
 
@@ -679,17 +704,20 @@ adminRoutes.post('/branding', async (c) => {
     patch.background_opacity = n;
   }
 
+  const uploadErrors: string[] = [];
   if (body.remove_logo === '1') {
     patch.logo_data_url = null;
   } else {
-    const dataUrl = await parseImageUpload(body.logo, { allowedMimes: LOGO_MIMES });
-    if (dataUrl) patch.logo_data_url = dataUrl;
+    const r = await parseImageUpload(body.logo, { allowedMimes: LOGO_MIMES });
+    if (r.status === 'ok') patch.logo_data_url = r.dataUrl;
+    else { const e = uploadErrorMessage(r, 'Logo'); if (e) uploadErrors.push(e); }
   }
   if (body.remove_background === '1') {
     patch.background_data_url = null;
   } else {
-    const dataUrl = await parseImageUpload(body.background, { allowedMimes: BG_MIMES });
-    if (dataUrl) patch.background_data_url = dataUrl;
+    const r = await parseImageUpload(body.background, { allowedMimes: BG_MIMES });
+    if (r.status === 'ok') patch.background_data_url = r.dataUrl;
+    else { const e = uploadErrorMessage(r, 'Image de fond'); if (e) uploadErrors.push(e); }
   }
 
   Brand.update(patch);
@@ -698,7 +726,8 @@ adminRoutes.post('/branding', async (c) => {
     action: 'admin.branding.update',
     ip: getClientIp(c),
   });
-  return c.redirect('/admin/branding?flash=saved');
+  const flashKey = uploadErrors.length ? `error:${encodeURIComponent(uploadErrors.join(' / '))}` : 'saved';
+  return c.redirect(`/admin/branding?flash=${flashKey}`);
 });
 
 // ── Settings ──────────────────────────────────────────────────────

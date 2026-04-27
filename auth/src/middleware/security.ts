@@ -7,10 +7,19 @@ import { config } from '../config.js';
  *  - X-Content-Type-Options : empêche le MIME sniffing
  *  - X-Frame-Options : empêche le framing (clickjacking)
  *  - Referrer-Policy : ne leake pas l'URL précédente
- *  - CSP : script-src 'self' + HTMX + unpkg (Tailwind CDN pour MVP)
+ *  - CSP : script-src 'self' + HTMX + Tailwind CDN
  *
- * NB : la CSP autorise unpkg.com pour Tailwind CDN. En prod si tu veux
- * durcir, build Tailwind statiquement et vire ce domaine.
+ * Trade-offs CSP connus, à durcir en prod :
+ *  - `style-src 'unsafe-inline'` est requis car Tailwind CDN injecte des
+ *    <style> au runtime, et nos vues utilisent style="..." attribute.
+ *    Remediation : bundler Tailwind statiquement (npm run build:css) et
+ *    remplacer les style-attr par des classes CSS dédiées.
+ *  - `script-src https://cdn.tailwindcss.com https://unpkg.com` autorise
+ *    deux CDN externes (supply chain risk). Remediation : self-host les
+ *    fichiers JS de Tailwind/HTMX.
+ *  - Risque XSS résiduel négligeable car notre HTML est entièrement
+ *    server-rendered avec auto-escaping (lib/html.ts) — pas de contenu
+ *    user-controlled rendu en raw().
  */
 export const securityHeaders: MiddlewareHandler = async (c, next) => {
   await next();

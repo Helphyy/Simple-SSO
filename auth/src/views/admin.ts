@@ -470,18 +470,29 @@ export function groupsListPage(opts: {
       <div class="card">
         <form method="POST" action="/admin/groups">
           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
-          <div class="form-section">
-            <div class="form-section-head">
-              <div>
-                <h2>Nouveau groupe</h2>
-                <p class="sub">Les groupes regroupent des utilisateurs pour leur accorder un accès collectif.</p>
-              </div>
+
+          <div class="settings-section-head">
+            <h2>Nouveau groupe</h2>
+            <p class="sub">Les groupes regroupent des utilisateurs pour leur accorder un accès collectif.</p>
+          </div>
+          <div class="settings-row first">
+            <div class="settings-row-label">
+              <div class="settings-row-name">Nom</div>
+              <div class="settings-row-help">Lettres, chiffres, . _ -</div>
             </div>
-            <div class="form-row">
-              ${input('name', { label: 'Nom', required: true, placeholder: 'wiki-users' })}
-              ${input('description', { label: 'Description' })}
+            <div class="settings-row-control">
+              <input name="name" type="text" required placeholder="wiki-users"/>
             </div>
           </div>
+          <div class="settings-row">
+            <div class="settings-row-label">
+              <div class="settings-row-name">Description</div>
+            </div>
+            <div class="settings-row-control">
+              <input name="description" type="text"/>
+            </div>
+          </div>
+
           <div class="form-actions">
             <button type="submit" class="btn-primary btn-md">Créer</button>
           </div>
@@ -821,6 +832,7 @@ export function clientBrandingPage(opts: {
   client: OidcClientPublic;
   branding: ClientBranding;
   flash?: string | null;
+  error?: string | null;
 }): Raw {
   const b = opts.branding;
   const settingsRow = (name: string, help: string | undefined, control: Raw, isFirst = false) => html`
@@ -861,6 +873,7 @@ export function clientBrandingPage(opts: {
     </div>
 
     ${opts.flash ? html`<div class="fade-in fade-in-1"><div class="alert alert-success">${opts.flash}</div></div>` : ''}
+    ${opts.error ? html`<div class="fade-in fade-in-1"><div class="alert alert-danger">${opts.error}</div></div>` : ''}
 
     <div class="fade-in fade-in-1">
       <div class="card">
@@ -915,6 +928,7 @@ export function brandingPage(opts: {
   csrfToken: string;
   branding: Branding;
   flash?: string | null;
+  error?: string | null;
 }): Raw {
   const b = opts.branding;
   const settingsRow = (name: string, help: string | undefined, control: Raw, isFirst = false) => html`
@@ -945,6 +959,7 @@ export function brandingPage(opts: {
       ${pageHeader({ title: 'Apparence', subtitle: 'Identité visuelle globale. Chaque application peut surcharger ces valeurs.' })}
     </div>
     ${opts.flash ? html`<div class="fade-in fade-in-1"><div class="alert alert-success">${opts.flash}</div></div>` : ''}
+    ${opts.error ? html`<div class="fade-in fade-in-1"><div class="alert alert-danger">${opts.error}</div></div>` : ''}
     <div class="fade-in fade-in-1">
       <div class="card">
         <form method="POST" action="/admin/branding" enctype="multipart/form-data">
