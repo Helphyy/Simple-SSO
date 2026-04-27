@@ -29,11 +29,22 @@ export const Groups = {
     return Groups.findById(id)!;
   },
 
-  update(id: string, patch: { description?: string }): void {
+  update(id: string, patch: { name?: string; description?: string }): void {
+    if (patch.name !== undefined) {
+      db.prepare('UPDATE groups SET name = ? WHERE id = ?').run(patch.name, id);
+    }
     if (patch.description !== undefined) {
       db.prepare('UPDATE groups SET description = ? WHERE id = ?')
         .run(patch.description, id);
     }
+  },
+
+  setMembers(groupId: string, userIds: string[]): void {
+    db.transaction(() => {
+      db.prepare('DELETE FROM user_groups WHERE group_id = ?').run(groupId);
+      const ins = db.prepare('INSERT INTO user_groups (user_id, group_id) VALUES (?, ?)');
+      for (const uid of userIds) ins.run(uid, groupId);
+    })();
   },
 
   delete(id: string): void {

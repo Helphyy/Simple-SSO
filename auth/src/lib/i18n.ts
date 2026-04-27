@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { MiddlewareHandler } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
+import { z } from 'zod';
 
 export type Lang = 'en' | 'fr';
 export const SUPPORTED_LANGS: Lang[] = ['en', 'fr'];
@@ -53,6 +54,41 @@ export function translateZodMessage(message: string): string {
       return message;
   }
 }
+
+// ── Zod error map (per-request localized) ─────────────────────────
+// Replaces Zod's English defaults with FR/EN strings via getLang().
+// Evaluated at parse time, so it picks up the request language.
+z.setErrorMap((issue, ctx) => {
+  switch (issue.code) {
+    case 'invalid_type':
+      if (issue.received === 'undefined' || issue.received === 'null') {
+        return { message: t('Required.', 'Requis.') };
+      }
+      return { message: t(`Expected ${issue.expected}, received ${issue.received}.`, `Attendu ${issue.expected}, reçu ${issue.received}.`) };
+    case 'invalid_string':
+      if (issue.validation === 'email') return { message: t('Invalid email.', 'Email invalide.') };
+      if (issue.validation === 'url')   return { message: t('Invalid URL.', 'URL invalide.') };
+      if (issue.validation === 'regex') return { message: translateZodMessage(ctx.defaultError) };
+      return { message: t('Invalid string.', 'Chaîne invalide.') };
+    case 'too_small':
+      if (issue.type === 'string') {
+        if (issue.minimum === 1) return { message: t('Required.', 'Requis.') };
+        return { message: t(`At least ${issue.minimum} characters.`, `${issue.minimum} caractères minimum.`) };
+      }
+      if (issue.type === 'number') return { message: t(`Must be ${issue.minimum} or more.`, `Doit être ≥ ${issue.minimum}.`) };
+      return { message: ctx.defaultError };
+    case 'too_big':
+      if (issue.type === 'string') return { message: t(`At most ${issue.maximum} characters.`, `${issue.maximum} caractères maximum.`) };
+      if (issue.type === 'number') return { message: t(`Must be ${issue.maximum} or less.`, `Doit être ≤ ${issue.maximum}.`) };
+      return { message: ctx.defaultError };
+    case 'invalid_enum_value':
+      return { message: t('Invalid value.', 'Valeur invalide.') };
+    case 'invalid_literal':
+      return { message: t('Invalid value.', 'Valeur invalide.') };
+    default:
+      return { message: ctx.defaultError };
+  }
+});
 
 export const langMiddleware: MiddlewareHandler = async (c, next) => {
   const cookie = getCookie(c, LANG_COOKIE);

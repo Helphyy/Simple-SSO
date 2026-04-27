@@ -455,7 +455,8 @@ authRoutes.post('/change-password', async (c) => {
   const policyErr = validatePassword(nextPw, [user.username, user.email, user.first_name, user.last_name].filter(Boolean) as string[]);
   if (policyErr) {
     if (policyErr.code === 'too_short') return renderFail(`${t('Password too short', 'Mot de passe trop court')} (${policyErr.min} ${t('characters minimum', 'caractères minimum')}).`);
-    return renderFail(t('Password too weak: ', 'Mot de passe trop faible : ') + (policyErr.suggestions[0] ?? t('choose something more complex.', 'choisis quelque chose de plus complexe.')));
+    // Skip zxcvbn suggestion (English-only) — keep a single localized hint.
+    return renderFail(t('Password too weak: choose something more complex.', 'Mot de passe trop faible : choisis quelque chose de plus complexe.'));
   }
 
   const hash = await hashPassword(nextPw);

@@ -41,7 +41,7 @@ export const securityHeaders: MiddlewareHandler = async (c, next) => {
       'Content-Security-Policy',
       [
         "default-src 'self'",
-        "img-src 'self' data:",
+        "img-src 'self' data: https:",
         "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com https://fonts.googleapis.com",
         "script-src 'self' https://cdn.tailwindcss.com https://unpkg.com",
         "connect-src 'self'",

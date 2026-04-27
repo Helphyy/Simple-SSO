@@ -153,6 +153,37 @@ export function formRow(...children: Raw[]): Raw {
   return html`<div class="form-row">${children.map((c) => c)}</div>`;
 }
 
+// ── Searchable picker (combobox + chips) ──────────────────────────
+export interface PickerItem { id: string; label: string; sub?: string }
+export function searchPicker(opts: {
+  name: string;
+  items: PickerItem[];
+  selected: Set<string>;
+  placeholder?: string;
+  emptyLabel?: string;
+}): Raw {
+  const sel = opts.items.filter((i) => opts.selected.has(i.id));
+  const all = opts.items;
+  return html`<div class="picker" data-picker data-name="${opts.name}">
+    <div class="picker-chips" data-chips data-empty="${opts.emptyLabel ?? ''}">
+      ${sel.map((it) => html`<span class="picker-chip" data-chip data-id="${it.id}" data-label="${it.label}" data-sub="${it.sub ?? ''}">
+        <span class="picker-chip-label">${it.label}</span>
+        <button type="button" class="picker-chip-x" aria-label="Remove">&times;</button>
+        <input type="hidden" name="${opts.name}" value="${it.id}"/>
+      </span>`)}
+    </div>
+    <div class="picker-search">
+      <input type="text" data-picker-input placeholder="${opts.placeholder ?? ''}" autocomplete="off"/>
+      <div class="picker-list" data-list hidden>
+        ${all.map((it) => html`<button type="button" class="picker-option" data-id="${it.id}" data-label="${it.label}" data-sub="${it.sub ?? ''}">
+          <span class="picker-option-label">${it.label}</span>
+          ${it.sub ? html`<span class="picker-option-sub">${it.sub}</span>` : ''}
+        </button>`)}
+      </div>
+    </div>
+  </div>`;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────
 export function escapeAttr(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');

@@ -114,7 +114,8 @@ function getCookieValue(header: string, name: string): string | null {
   for (const p of parts) {
     const eq = p.indexOf('=');
     if (eq > 0 && p.slice(0, eq) === name) {
-      return decodeURIComponent(p.slice(eq + 1));
+      try { return decodeURIComponent(p.slice(eq + 1)); }
+      catch { return null; }
     }
   }
   return null;

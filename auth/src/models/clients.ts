@@ -91,6 +91,33 @@ export const Clients = {
     db.prepare('UPDATE oidc_clients SET home_url = ? WHERE id = ?').run(url, id);
   },
 
+  update(id: string, patch: {
+    name?: string;
+    redirect_uris?: string[];
+    post_logout_uris?: string[];
+  }): void {
+    const cur = Clients.findById(id);
+    if (!cur) return;
+    db.prepare(`
+      UPDATE oidc_clients
+      SET name = ?, redirect_uris = ?, post_logout_uris = ?
+      WHERE id = ?
+    `).run(
+      patch.name ?? cur.name,
+      patch.redirect_uris !== undefined ? JSON.stringify(patch.redirect_uris) : cur.redirect_uris,
+      patch.post_logout_uris !== undefined ? JSON.stringify(patch.post_logout_uris) : cur.post_logout_uris,
+      id
+    );
+  },
+
+  rotateSecret(id: string): string | null {
+    const cur = Clients.findById(id);
+    if (!cur) return null;
+    const secret = newToken(32);
+    db.prepare('UPDATE oidc_clients SET client_secret = ? WHERE id = ?').run(secret, id);
+    return secret;
+  },
+
   delete(id: string): void {
     db.prepare('DELETE FROM oidc_clients WHERE id = ?').run(id);
   },

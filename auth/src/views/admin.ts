@@ -8,6 +8,7 @@ import type { Principal } from '../models/access.js';
 import type { AppSettings } from '../models/settings.js';
 import type { AuditEntry } from '../models/audit.js';
 import { t } from '../lib/i18n.js';
+import { searchPicker } from './_components.js';
 
 type NavUser = { username: string; role: 'admin' | 'member' };
 
@@ -166,7 +167,7 @@ export function usersListPage(opts: {
         <div class="cell-primary">
           <span class="avatar-mark" style="width:28px;height:28px;font-size:11px;">${(u.username.trim()[0] ?? '?').toUpperCase()}</span>
           <div class="meta">
-            <a href="/admin/users/${u.id}" class="name" style="text-decoration: none;">${u.username}</a>
+            <span class="name">${u.username}</span>
             ${u.email ? html`<div class="sub font-mono">${u.email}</div>` : ''}
           </div>
         </div>
@@ -186,6 +187,16 @@ export function usersListPage(opts: {
           ${u.locked ? html`<span class="badge badge-danger">${t('locked', 'bloqué')}</span>` : ''}
         </div>
       </td>
+      <td>
+        <div class="row-actions">
+          <a href="/admin/users/${u.id}" class="btn-ghost btn-sm">${t('Edit', 'Modifier')}</a>
+          <form method="POST" action="/admin/users/${u.id}/delete" class="inline"
+                onsubmit="return confirm('${t('Delete', 'Supprimer')} ${escapeAttr(u.username)} ?');">
+            <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
+            <button type="submit" class="btn-ghost btn-ghost-danger btn-sm">${t('Delete', 'Supprimer')}</button>
+          </form>
+        </div>
+      </td>
     </tr>
   `);
 
@@ -193,7 +204,7 @@ export function usersListPage(opts: {
     <div class="fade-in">
       ${pageHeader({
         title: t('Users', 'Utilisateurs'),
-        subtitle: `${opts.users.length} ${opts.users.length > 1 ? t('accounts in total.', 'comptes au total.') : t('account in total.', 'compte au total.')}`,
+        subtitle: `${opts.users.length} ${opts.users.length === 1 ? t('account in total.', 'compte au total.') : t('accounts in total.', 'comptes au total.')}`,
         action: html`<a href="/admin/users/new" class="btn-primary inline-flex items-center gap-1.5">
           <span class="font-mono">+</span><span>${t('New', 'Nouveau')}</span>
         </a>`,
@@ -291,21 +302,13 @@ export function userNewPage(opts: {
               <option value="admin"${fd.role === 'admin' ? raw(' selected') : raw('')}>Admin</option>
             </select>
           `, true)}
-          ${opts.groups.length ? html`
-            <div style="padding: 0 24px 20px;">
-              <div class="stack-1" style="gap: 2px;">
-                ${opts.groups.map((g) => html`
-                  <label class="check-row">
-                    <input type="checkbox" name="groups" value="${g.id}"/>
-                    <div class="meta">
-                      <div class="name">${g.name}</div>
-                      ${g.description ? html`<div class="sub">${g.description}</div>` : ''}
-                    </div>
-                  </label>
-                `)}
-              </div>
-            </div>
-          ` : ''}
+          ${opts.groups.length ? settingsRow(t('Groups', 'Groupes'), undefined, searchPicker({
+            name: 'groups',
+            items: opts.groups.map((g) => ({ id: g.id, label: g.name, sub: g.description })),
+            selected: new Set<string>(),
+            placeholder: t('Search a group…', 'Rechercher un groupe…'),
+            emptyLabel: t('No group selected.', 'Aucun groupe sélectionné.'),
+          })) : ''}
 
           <div class="form-actions">
             <a href="/admin/users" class="btn-ghost btn-md">${t('Cancel', 'Annuler')}</a>
@@ -401,19 +404,13 @@ export function userEditPage(opts: {
           </div>
           ${opts.allGroups.length === 0
             ? html`<div style="padding: 0 24px 20px;"><p class="help-text">${t('No groups.', 'Aucun groupe.')} <a href="/admin/groups" style="color: var(--text); text-decoration: underline;">${t('Create one →', 'En créer un →')}</a></p></div>`
-            : html`<div style="padding: 0 24px 20px;">
-                <div class="stack-1" style="gap: 2px;">
-                  ${opts.allGroups.map((g) => html`
-                    <label class="check-row">
-                      <input type="checkbox" name="groups" value="${g.id}"${opts.memberGroupIds.has(g.id) ? raw(' checked') : raw('')}/>
-                      <div class="meta">
-                        <div class="name">${g.name}</div>
-                        ${g.description ? html`<div class="sub">${g.description}</div>` : ''}
-                      </div>
-                    </label>
-                  `)}
-                </div>
-              </div>`}
+            : settingsRow(t('Member of', 'Membre de'), undefined, searchPicker({
+                name: 'groups',
+                items: opts.allGroups.map((g) => ({ id: g.id, label: g.name, sub: g.description })),
+                selected: opts.memberGroupIds,
+                placeholder: t('Search a group…', 'Rechercher un groupe…'),
+                emptyLabel: t('Not a member of any group.', "Membre d'aucun groupe."),
+              }), true)}
           ${opts.allGroups.length ? html`
             <div class="form-actions">
               <button type="submit" class="btn-primary btn-md">${t('Update', 'Mettre à jour')}</button>
@@ -531,6 +528,7 @@ export function groupsListPage(opts: {
                     <td style="color: var(--text-muted)">${g.members}</td>
                     <td>
                       <div class="row-actions">
+                        <a href="/admin/groups/${g.id}" class="btn-ghost btn-sm">${t('Edit', 'Modifier')}</a>
                         <form method="POST" action="/admin/groups/${g.id}/delete" class="inline"
                               onsubmit="return confirm('${t('Delete group', 'Supprimer le groupe')} ${escapeAttr(g.name)} ?');">
                           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
@@ -546,6 +544,97 @@ export function groupsListPage(opts: {
     </div>
   `;
   return layout({ title: t('Groups', 'Groupes'), body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', width: 'wide', activeSection: 'groups' });
+}
+
+// ── Group edit (rename / description / members / delete) ─────────
+export function groupEditPage(opts: {
+  user: NavUser;
+  csrfToken: string;
+  group: Group;
+  allUsers: User[];
+  memberUserIds: Set<string>;
+  flash?: string | null;
+  error?: string | null;
+  formData?: { name?: string; description?: string };
+}): Raw {
+  const g = opts.group;
+  const fd = opts.formData ?? {};
+  const settingsRow = (name: string, help: string | undefined, control: Raw, isFirst = false) => html`
+    <div class="settings-row${isFirst ? ' first' : ''}">
+      <div class="settings-row-label">
+        <div class="settings-row-name">${name}</div>
+        ${help ? html`<div class="settings-row-help">${help}</div>` : ''}
+      </div>
+      <div class="settings-row-control">${control}</div>
+    </div>
+  `;
+  const body = html`
+    <div class="fade-in" style="margin-bottom: 12px;">
+      <a href="/admin/groups" class="btn-link">
+        <svg style="width: 12px; height: 12px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4l-4 4 4 4"/></svg>
+        <span>${t('Groups', 'Groupes')}</span>
+      </a>
+    </div>
+    <div class="fade-in">
+      ${pageHeader({ title: g.name, subtitle: g.description || undefined })}
+    </div>
+
+    ${opts.flash ? html`<div class="fade-in fade-in-1"><div class="alert alert-success">${opts.flash}</div></div>` : ''}
+    ${opts.error ? html`<div class="fade-in fade-in-1"><div class="alert alert-danger">${opts.error}</div></div>` : ''}
+
+    <div class="fade-in fade-in-1 stack-4">
+      <div class="card">
+        <form method="POST" action="/admin/groups/${g.id}">
+          <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
+          <div class="settings-section-head">
+            <h2>${t('Identity', 'Identité')}</h2>
+          </div>
+          ${settingsRow(t('Name', 'Nom'), t('Letters, digits, . _ -', 'Lettres, chiffres, . _ -'), html`<input name="name" type="text" value="${fd.name ?? g.name}" required/>`, true)}
+          ${settingsRow(t('Description', 'Description'), undefined, html`<input name="description" type="text" value="${fd.description ?? g.description}"/>`)}
+          <div class="form-actions">
+            <button type="submit" class="btn-primary btn-md">${t('Save', 'Enregistrer')}</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <form method="POST" action="/admin/groups/${g.id}/members">
+          <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
+          <div class="settings-section-head">
+            <h2>${t('Members', 'Membres')}</h2>
+            <p class="sub">${t('Add or remove users in this group.', 'Ajoute ou retire des utilisateurs dans ce groupe.')}</p>
+          </div>
+          ${opts.allUsers.length === 0
+            ? html`<div style="padding: 0 24px 20px;"><p class="help-text">${t('No users.', 'Aucun utilisateur.')}</p></div>`
+            : settingsRow(t('Members', 'Membres'), undefined, searchPicker({
+                name: 'users',
+                items: opts.allUsers.map((u) => ({ id: u.id, label: u.username, sub: u.email ?? undefined })),
+                selected: opts.memberUserIds,
+                placeholder: t('Search a user…', 'Rechercher un utilisateur…'),
+                emptyLabel: t('No member yet.', 'Aucun membre.'),
+              }), true)}
+          ${opts.allUsers.length ? html`
+            <div class="form-actions">
+              <button type="submit" class="btn-primary btn-md">${t('Save members', 'Enregistrer les membres')}</button>
+            </div>
+          ` : ''}
+        </form>
+      </div>
+
+      <div class="card card-danger">
+        <div class="danger-section">
+          <h2>${t('Delete group', 'Supprimer le groupe')}</h2>
+          <p>${t('Removes the group. Users keep their other memberships.', 'Retire le groupe. Les utilisateurs conservent leurs autres appartenances.')}</p>
+          <form method="POST" action="/admin/groups/${g.id}/delete" class="inline"
+                onsubmit="return confirm('${t('Delete group', 'Supprimer le groupe')} ${escapeAttr(g.name)} ?');">
+            <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
+            <button type="submit" class="btn-danger btn-md">${t('Delete permanently', 'Supprimer définitivement')}</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  `;
+  return layout({ title: g.name, body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'groups' });
 }
 
 // ── Client secret display (after creation) ────────────────────────
@@ -569,25 +658,34 @@ export function clientSecretPage(opts: {
       })}
     </div>
 
-    <div class="fade-in fade-in-1" class="form-wrap">
+    <div class="fade-in fade-in-1">
       <div class="alert alert-warning" style="margin-bottom: 16px;">
         <strong>${t('The secret is shown only once.', 'Le secret est affiché une seule fois.')}</strong> ${t('Store it in a password manager or in the application configuration before leaving this page.', "Stocke-le dans un gestionnaire de mots de passe ou dans la configuration de l'application avant de quitter cette page.")}
       </div>
       <div class="card">
-        <div class="form-section">
-          <div class="secret-row">
-            <span class="secret-label">Client ID</span>
+        <div class="settings-section-head">
+          <h2>${t('Credentials', 'Identifiants')}</h2>
+          <p class="sub">${t('Copy these values into the application configuration.', "Copie ces valeurs dans la configuration de l'application.")}</p>
+        </div>
+        <div class="settings-row first">
+          <div class="settings-row-label">
+            <div class="settings-row-name">Client ID</div>
+          </div>
+          <div class="settings-row-control wide">
             <code class="secret-value">${opts.id}</code>
           </div>
         </div>
-        <div class="form-section">
-          <div class="secret-row">
-            <span class="secret-label">Client Secret</span>
+        <div class="settings-row">
+          <div class="settings-row-label">
+            <div class="settings-row-name">Client Secret</div>
+            <div class="settings-row-help">${t('Shown only once.', 'Affiché une seule fois.')}</div>
+          </div>
+          <div class="settings-row-control wide">
             <code class="secret-value">${opts.secret}</code>
           </div>
         </div>
         <div class="form-actions">
-          <a href="/admin/clients/${opts.id}/access" class="btn-ghost btn-md">${t('Configure access', "Configurer l'accès")}</a>
+          <a href="/admin/clients/${opts.id}" class="btn-ghost btn-md">${t('Configure access', "Configurer l'accès")}</a>
           <a href="/admin/clients" class="btn-primary btn-md">${t('Back to applications', 'Retour aux applications')}</a>
         </div>
       </div>
@@ -642,7 +740,7 @@ export function clientsListPage(opts: {
                       <div class="cell-primary">
                         <span class="avatar-mark" style="width:32px;height:32px;font-size:13px;">${(c.name.trim()[0] ?? '?').toUpperCase()}</span>
                         <div class="meta">
-                          <div class="name">${c.name}</div>
+                          <a href="/admin/clients/${c.id}" class="name" style="text-decoration: none;">${c.name}</a>
                           <code class="sub font-mono">${c.id}</code>
                         </div>
                       </div>
@@ -652,7 +750,7 @@ export function clientsListPage(opts: {
                     </td>
                     <td>
                       <div class="row-actions">
-                        <a href="/admin/clients/${c.id}/access" class="btn-ghost btn-sm">${t('Access', 'Accès')}</a>
+                        <a href="/admin/clients/${c.id}" class="btn-ghost btn-sm">${t('Edit', 'Modifier')}</a>
                         <a href="/admin/clients/${c.id}/branding" class="btn-ghost btn-sm">${t('Appearance', 'Apparence')}</a>
                         <form method="POST" action="/admin/clients/${c.id}/delete" class="inline"
                               onsubmit="return confirm('${t('Delete', 'Supprimer')} ${escapeAttr(c.name)} ?');">
@@ -675,7 +773,7 @@ export function clientNewPage(opts: {
   user: NavUser;
   csrfToken: string;
   error?: string | null;
-  formData?: { id?: string; name?: string; redirect_uris?: string; post_logout_uris?: string };
+  formData?: { id?: string; name?: string; home_url?: string; redirect_uris?: string; post_logout_uris?: string };
 }): Raw {
   const fd = opts.formData ?? {};
   const settingsRow = (name: string, help: string | undefined, control: Raw, isFirst = false) => html`
@@ -700,15 +798,17 @@ export function clientNewPage(opts: {
     ${opts.error ? html`<div class="fade-in fade-in-1"><div class="alert alert-danger">${opts.error}</div></div>` : ''}
     <div class="fade-in fade-in-1">
       <div class="card">
-        <form method="POST" action="/admin/clients">
+        <form method="POST" action="/admin/clients" enctype="multipart/form-data">
           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
 
           <div class="settings-section-head">
-            <h2>${t('Application', 'Application')}</h2>
-            <p class="sub">${t('Identifier and name shown to the user.', "Identifiant et nom affichés à l'utilisateur.")}</p>
+            <h2>${t('Identity', 'Identité')}</h2>
+            <p class="sub">${t('How this application appears to users.', "Apparence de l'application pour les utilisateurs.")}</p>
           </div>
           ${settingsRow('Client ID', t('Technical identifier, immutable.', 'Identifiant technique, immutable.'), html`<input name="id" type="text" value="${fd.id ?? ''}" required placeholder="outline"/>`, true)}
           ${settingsRow(t('Display name', 'Nom affiché'), undefined, html`<input name="name" type="text" value="${fd.name ?? ''}" required placeholder="Outline"/>`)}
+          ${settingsRow(t('Custom logo', 'Logo personnalisé'), t('PNG / SVG / JPEG, max 10 MB. Falls back to the favicon of the home URL.', 'PNG / SVG / JPEG, max 10 Mo. À défaut, le favicon de la home URL est utilisé.'), html`<input type="file" name="logo" accept="image/png,image/svg+xml,image/jpeg"/>`)}
+          ${settingsRow(t('Home URL', "URL d'accueil"), t('Where the icon on the user hub leads. Empty = derived from the redirect URI.', "Cible de l'icône depuis le hub utilisateur. Vide = déduite du redirect URI."), html`<input name="home_url" type="url" value="${fd.home_url ?? ''}" placeholder="https://wiki.example.com"/>`)}
 
           <div class="settings-section-head">
             <h2>${t('OIDC URLs', 'URLs OIDC')}</h2>
@@ -728,8 +828,8 @@ export function clientNewPage(opts: {
   return layout({ title: t('New application', 'Nouvelle application'), body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'clients' });
 }
 
-// ── Per-client access (ACL) ───────────────────────────────────────
-export function clientAccessPage(opts: {
+// ── Client edit (unified: identity + URLs + access + secret + delete)
+export function clientEditPage(opts: {
   user: NavUser;
   csrfToken: string;
   client: OidcClientPublic;
@@ -737,8 +837,13 @@ export function clientAccessPage(opts: {
   allGroups: Group[];
   selectedUsers: Set<string>;
   selectedGroups: Set<string>;
+  logoDataUrl: string | null;
   flash?: string | null;
+  error?: string | null;
+  formData?: { name?: string; redirect_uris?: string; post_logout_uris?: string; home_url?: string };
 }): Raw {
+  const c = opts.client;
+  const fd = opts.formData ?? {};
   const restricted = opts.selectedUsers.size + opts.selectedGroups.size > 0;
   const settingsRow = (name: string, help: string | undefined, control: Raw, isFirst = false) => html`
     <div class="settings-row${isFirst ? ' first' : ''}">
@@ -758,72 +863,121 @@ export function clientAccessPage(opts: {
     </div>
     <div class="fade-in">
       ${pageHeader({
-        title: `${t('Access', 'Accès')} ${opts.client.name}`,
-        subtitle: restricted ? t('Application restricted to selected users and groups.', 'Application restreinte aux utilisateurs et groupes sélectionnés.') : t('No restriction: any authenticated user can access.', 'Aucune restriction : tout utilisateur authentifié peut accéder.'),
+        title: c.name,
+        subtitle: c.id,
+        action: html`<a href="/admin/clients/${c.id}/branding" class="btn-ghost btn-md">${t('Appearance', 'Apparence')}</a>`,
       })}
     </div>
 
     ${opts.flash ? html`<div class="fade-in fade-in-1"><div class="alert alert-success">${opts.flash}</div></div>` : ''}
+    ${opts.error ? html`<div class="fade-in fade-in-1"><div class="alert alert-danger">${opts.error}</div></div>` : ''}
 
-    <div class="fade-in fade-in-1">
+    <div class="fade-in fade-in-1 stack-4">
       <div class="card">
-        <form method="POST" action="/admin/clients/${opts.client.id}/access">
+        <form method="POST" action="/admin/clients/${c.id}" enctype="multipart/form-data">
           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
+          <div class="settings-section-head">
+            <h2>${t('Identity', 'Identité')}</h2>
+            <p class="sub">${t('How this application appears to users.', "Apparence de l'application pour les utilisateurs.")}</p>
+          </div>
+          ${settingsRow('Client ID', t('Technical identifier, immutable.', 'Identifiant technique, immutable.'), html`<input type="text" value="${c.id}" disabled class="font-mono"/>`, true)}
+          ${settingsRow(t('Display name', 'Nom affiché'), undefined, html`<input name="name" type="text" value="${fd.name ?? c.name}" required/>`)}
+          ${settingsRow(t('Custom logo', 'Logo personnalisé'), t('PNG / SVG / JPEG, max 10 MB. Falls back to the favicon of the home URL.', 'PNG / SVG / JPEG, max 10 Mo. À défaut, le favicon de la home URL est utilisé.'), html`
+            <div>
+              <input type="file" name="logo" accept="image/png,image/svg+xml,image/jpeg"/>
+              ${opts.logoDataUrl ? html`
+                <div class="file-preview" style="margin-top: 8px;">
+                  <img src="${opts.logoDataUrl}" alt="" style="width:40px;height:40px;"/>
+                  <label class="remove-toggle">
+                    <input type="checkbox" name="remove_logo" value="1"/>
+                    <span>${t('Remove current logo', 'Retirer le logo actuel')}</span>
+                  </label>
+                </div>` : ''}
+            </div>`)}
+          ${settingsRow(t('Home URL', "URL d'accueil"), t('Where the icon on the user hub leads. Empty = derived from the redirect URI.', "Cible de l'icône depuis le hub utilisateur. Vide = déduite du redirect URI."), html`<input name="home_url" type="url" value="${fd.home_url ?? (c.home_url ?? '')}" placeholder="https://wiki.example.com"/>`)}
 
           <div class="settings-section-head">
-            <h2>${t('Access link', "Lien d'accès")}</h2>
-            <p class="sub">${t('URL opened from the user hub.', 'URL ouverte depuis le hub des utilisateurs.')}</p>
+            <h2>${t('OIDC URLs', 'URLs OIDC')}</h2>
+            <p class="sub">${t('URLs the client may be redirected to.', 'URLs vers lesquelles le client peut être redirigé.')}</p>
           </div>
-          ${settingsRow(t('Home URL', "URL d'accueil"), t('Empty = inferred from redirect URI.', 'Vide = déduite du redirect URI.'), html`<input name="home_url" type="url" value="${opts.client.home_url ?? ''}" placeholder="https://wiki.example.com"/>`, true)}
-
-          <div class="settings-section-head">
-            <h2>${t('Allowed groups', 'Groupes autorisés')}</h2>
-            <p class="sub">${opts.allGroups.length === 0 ? t('No groups defined.', 'Aucun groupe défini.') : t('All members of these groups will have access.', 'Tous les membres de ces groupes auront accès.')}</p>
-          </div>
-          <div style="padding: 0 24px 20px;">
-            ${opts.allGroups.length === 0
-              ? html`<p class="help-text">${t('Create a group from', 'Crée un groupe depuis')} <a href="/admin/groups" class="text-mono-xs" style="color: var(--text); text-decoration: underline;">${t('Groups', 'Groupes')}</a>.</p>`
-              : html`<div class="stack-1" style="gap: 2px;">
-                  ${opts.allGroups.map((g) => html`
-                    <label class="check-row">
-                      <input type="checkbox" name="groups" value="${g.id}"${opts.selectedGroups.has(g.id) ? raw(' checked') : raw('')}/>
-                      <div class="meta">
-                        <div class="name">${g.name}</div>
-                        ${g.description ? html`<div class="sub">${g.description}</div>` : ''}
-                      </div>
-                    </label>
-                  `)}
-                </div>`}
-          </div>
-
-          <div class="settings-section-head">
-            <h2>${t('Allowed users', 'Utilisateurs autorisés')}</h2>
-            <p class="sub">${t('In addition to the groups above.', 'En plus des groupes ci-dessus.')}</p>
-          </div>
-          <div style="padding: 0 24px 20px;">
-            ${opts.allUsers.length === 0
-              ? html`<p class="help-text">${t('No users.', 'Aucun utilisateur.')}</p>`
-              : html`<div class="stack-1" style="gap: 2px; max-height: 320px; overflow-y: auto;">
-                  ${opts.allUsers.map((u) => html`
-                    <label class="check-row">
-                      <input type="checkbox" name="users" value="${u.id}"${opts.selectedUsers.has(u.id) ? raw(' checked') : raw('')}/>
-                      <div class="meta">
-                        <div class="name">${u.username}</div>
-                        ${u.email ? html`<div class="sub font-mono">${u.email}</div>` : ''}
-                      </div>
-                    </label>
-                  `)}
-                </div>`}
-          </div>
+          ${settingsRow('Redirect URIs', t('One URL per line.', 'Une URL par ligne.'), html`<textarea name="redirect_uris" required rows="3" class="font-mono">${fd.redirect_uris ?? c.redirect_uris.join('\n')}</textarea>`, true)}
+          ${settingsRow('Post Logout URIs', t('Optional.', 'Optionnel.'), html`<textarea name="post_logout_uris" rows="2" class="font-mono">${fd.post_logout_uris ?? c.post_logout_uris.join('\n')}</textarea>`)}
 
           <div class="form-actions">
             <button type="submit" class="btn-primary btn-md">${t('Save', 'Enregistrer')}</button>
           </div>
         </form>
       </div>
+
+      <div class="card">
+        <form method="POST" action="/admin/clients/${c.id}/access">
+          <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
+          <div class="settings-section-head">
+            <h2>${t('Access', 'Accès')}</h2>
+            <p class="sub">${restricted
+              ? t('Application restricted to the selected users and groups.', 'Application restreinte aux utilisateurs et groupes sélectionnés.')
+              : t('No restriction: any authenticated user may access.', 'Aucune restriction : tout utilisateur authentifié peut accéder.')}</p>
+          </div>
+
+          ${settingsRow(t('Allowed groups', 'Groupes autorisés'), opts.allGroups.length === 0
+              ? t('No groups defined yet.', 'Aucun groupe défini.')
+              : t('All members of these groups will have access.', 'Tous les membres de ces groupes auront accès.'),
+            opts.allGroups.length === 0
+              ? html`<p class="help-text">${t('Create a group from', 'Crée un groupe depuis')} <a href="/admin/groups" style="color: var(--text); text-decoration: underline;">${t('Groups', 'Groupes')}</a>.</p>`
+              : searchPicker({
+                  name: 'groups',
+                  items: opts.allGroups.map((g) => ({ id: g.id, label: g.name, sub: g.description })),
+                  selected: opts.selectedGroups,
+                  placeholder: t('Search a group…', 'Rechercher un groupe…'),
+                  emptyLabel: t('No group selected.', 'Aucun groupe sélectionné.'),
+                }),
+            true)}
+
+          ${settingsRow(t('Allowed users', 'Utilisateurs autorisés'), t('In addition to the groups above.', 'En plus des groupes ci-dessus.'),
+            opts.allUsers.length === 0
+              ? html`<p class="help-text">${t('No users.', 'Aucun utilisateur.')}</p>`
+              : searchPicker({
+                  name: 'users',
+                  items: opts.allUsers.map((u) => ({ id: u.id, label: u.username, sub: u.email ?? undefined })),
+                  selected: opts.selectedUsers,
+                  placeholder: t('Search a user…', 'Rechercher un utilisateur…'),
+                  emptyLabel: t('No user selected.', 'Aucun utilisateur sélectionné.'),
+                }))}
+
+          <div class="form-actions">
+            <button type="submit" class="btn-primary btn-md">${t('Save access', 'Enregistrer les accès')}</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <form method="POST" action="/admin/clients/${c.id}/rotate-secret"
+              onsubmit="return confirm('${t('Rotate the client secret? Any integration using the current secret will stop working until updated.', 'Renouveler le client secret ? Toute integration utilisant le secret actuel cessera de fonctionner avant la mise a jour.')}');">
+          <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
+          <div class="settings-section-head">
+            <h2>${t('Client secret', 'Client secret')}</h2>
+            <p class="sub">${t('Rotate the secret if you suspect it leaked. The new value is shown only once.', 'Renouvelle le secret en cas de fuite suspectée. La nouvelle valeur est affichée une seule fois.')}</p>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-ghost btn-md">${t('Rotate secret', 'Renouveler le secret')}</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card card-danger">
+        <div class="danger-section">
+          <h2>${t('Delete application', "Supprimer l'application")}</h2>
+          <p>${t('Removes the OIDC client and all its access rules. Irreversible.', "Retire le client OIDC et toutes ses règles d'accès. Irréversible.")}</p>
+          <form method="POST" action="/admin/clients/${c.id}/delete" class="inline"
+                onsubmit="return confirm('${t('Delete', 'Supprimer')} ${escapeAttr(c.name)} ?');">
+            <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
+            <button type="submit" class="btn-danger btn-md">${t('Delete permanently', 'Supprimer définitivement')}</button>
+          </form>
+        </div>
+      </div>
     </div>
   `;
-  return layout({ title: `${t('Access', 'Accès')} ${opts.client.name}`, body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'clients' });
+  return layout({ title: c.name, body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'clients' });
 }
 
 // ── Per-client branding ───────────────────────────────────────────

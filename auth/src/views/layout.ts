@@ -630,14 +630,14 @@ export function layout(opts: LayoutOpts): Raw {
     }
 
     /* ── Settings row (macOS / Linear style: label left, control right) ─ */
+    /* No inter-row dividers; only sections separate visually. */
     .settings-row {
       display: flex;
       align-items: flex-start;
       gap: 32px;
-      padding: 16px 24px;
-      border-top: 1px solid var(--border);
+      padding: 12px 24px;
     }
-    .settings-row.first { border-top: 0; }
+    .settings-row.first { padding-top: 14px; }
     .settings-row-label {
       flex: 0 0 240px;
       min-width: 0;
@@ -660,6 +660,12 @@ export function layout(opts: LayoutOpts): Raw {
       min-width: 0;
       max-width: 360px;
     }
+    .settings-row-control.wide { max-width: none; }
+    .settings-row-control.wide .secret-value {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+    }
     .settings-row-control > input,
     .settings-row-control > select,
     .settings-row-control > textarea {
@@ -674,7 +680,7 @@ export function layout(opts: LayoutOpts): Raw {
       color: var(--text-muted);
     }
     .settings-section-head {
-      padding: 18px 24px 8px;
+      padding: 16px 24px 4px;
     }
     .settings-section-head h2 {
       font-size: 13.5px;
@@ -688,7 +694,14 @@ export function layout(opts: LayoutOpts): Raw {
       color: var(--text-muted);
       line-height: 1.45;
     }
-    .settings-section-head + .settings-row { border-top: 0; }
+    /* Row right after a section head: tight top padding (head owns the spacing). */
+    .settings-section-head + .settings-row { padding-top: 8px; }
+    /* A new section head starting after rows owns the separator above. */
+    .settings-row + .settings-section-head,
+    .settings-section-head + .settings-section-head {
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+    }
     @media (max-width: 720px) {
       .settings-row {
         flex-direction: column;
@@ -1005,6 +1018,39 @@ export function layout(opts: LayoutOpts): Raw {
       letter-spacing: -0.02em;
       text-transform: uppercase;
     }
+    /* Wrap holding a favicon img on top of a letter background. The letter
+       shows through as a fallback if the favicon fails to load. */
+    .app-card-logo-wrap {
+      position: relative;
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: linear-gradient(135deg,
+        color-mix(in oklab, var(--color-accent) 100%, white),
+        color-mix(in oklab, var(--color-accent) 75%, black));
+      display: inline-flex;
+      align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    .app-card-logo-wrap::before {
+      content: attr(data-letter);
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+    }
+    .app-card-logo-wrap img {
+      position: relative;
+      width: 100%; height: 100%;
+      object-fit: contain;
+      background: #fff;
+    }
+    /* If favicon 404s, hide the broken img so the letter background shows. */
+    .app-card-logo-wrap img:not([src]),
+    .app-card-logo-wrap img[src=""] { display: none; }
     .app-card-arrow {
       width: 14px; height: 14px;
       color: var(--text-faint);
@@ -1287,6 +1333,65 @@ export function layout(opts: LayoutOpts): Raw {
       margin-top: 1px;
     }
 
+    /* ── Searchable picker (combobox + chips) ───────────── */
+    .picker { display: flex; flex-direction: column; gap: 8px; }
+    .picker-chips {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      min-height: 28px;
+    }
+    .picker-empty {
+      font-size: 12.5px; color: var(--text-faint); padding: 4px 0;
+    }
+    .picker-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 4px 4px 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 12.5px;
+      color: var(--text);
+    }
+    .picker-chip-label { white-space: nowrap; }
+    .picker-chip-x {
+      width: 18px; height: 18px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: transparent; border: 0; border-radius: 999px;
+      color: var(--text-muted); font-size: 14px; line-height: 1;
+      cursor: pointer; padding: 0;
+    }
+    .picker-chip-x:hover { background: var(--hover-strong); color: var(--text); }
+    .picker-search { position: relative; }
+    .picker-search input[type="text"] {
+      width: 100%;
+    }
+    .picker-list {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      max-height: 240px; overflow-y: auto;
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+      z-index: 30;
+      padding: 4px;
+    }
+    .picker-option {
+      display: block; width: 100%; text-align: left;
+      padding: 8px 10px;
+      background: transparent; border: 0; border-radius: 6px;
+      cursor: pointer;
+      color: var(--text);
+      font-size: 13px;
+    }
+    .picker-option:hover { background: var(--hover); }
+    .picker-option .picker-option-label { font-weight: 500; }
+    .picker-option .picker-option-sub {
+      display: block;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 1px;
+    }
+
     /* ── Background image (login) ─────────────────────────── */
     .bg-layer {
       position: fixed; inset: 0;
@@ -1477,10 +1582,7 @@ function renderShell(opts: LayoutOpts): Raw {
             <span class="avatar">${initial(u.username)}</span>
             <span class="u-name">${u.username}</span>
           </div>
-          <div class="sidebar-tools">
-            ${langSelector()}
-            ${themeToggle()}
-          </div>
+          ${themeToggle()}
           <form method="POST" action="/logout" class="inline">
             ${opts.csrfToken ? html`<input type="hidden" name="csrf" value="${opts.csrfToken}"/>` : ''}
             <button type="submit" class="tbtn" aria-label="${t('Sign out', 'Déconnexion')}" title="${t('Sign out', 'Déconnexion')}">

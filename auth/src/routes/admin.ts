@@ -13,8 +13,8 @@ import { hashPassword, validatePassword } from '../lib/password.js';
 import { render$ } from '../lib/html.js';
 import {
   adminDashboardPage, usersListPage, userNewPage, userEditPage,
-  groupsListPage, clientsListPage, clientNewPage, clientSecretPage,
-  clientBrandingPage, clientAccessPage, brandingPage, auditPage, settingsPage,
+  groupsListPage, groupEditPage, clientsListPage, clientNewPage, clientSecretPage,
+  clientBrandingPage, clientEditPage, brandingPage, auditPage, settingsPage,
 } from '../views/admin.js';
 import { Access } from '../models/access.js';
 import { parseImageUpload, uploadErrorMessage } from '../lib/upload.js';
@@ -134,7 +134,7 @@ adminRoutes.post('/users', async (c) => {
   if (policy) {
     const msg = policy.code === 'too_short'
       ? `${t('Password too short', 'Mot de passe trop court')} (${policy.min} min).`
-      : t('Password too weak.', 'Mot de passe trop faible.') + ' ' + (policy.suggestions[0] ?? '');
+      : t('Password too weak. Choose something more complex.', 'Mot de passe trop faible. Choisis quelque chose de plus complexe.');
     return html(c, userNewPage({
       user: navUser(c),
       csrfToken: c.get('csrfToken') as string,
@@ -422,6 +422,87 @@ adminRoutes.post('/groups', async (c) => {
   return c.redirect('/admin/groups?flash=created');
 });
 
+adminRoutes.get('/groups/:id', (c) => {
+  const g = Groups.findById(c.req.param('id'));
+  if (!g) return c.notFound();
+  const flashKey = c.req.query('flash');
+  const flash = flashKey === 'saved' ? t('Group saved.', 'Groupe enregistré.')
+              : flashKey === 'members_saved' ? t('Members saved.', 'Membres enregistrés.')
+              : null;
+  const memberIds = new Set(Groups.membersOf(g.id).map((m) => m.id));
+  return html(c, groupEditPage({
+    user: navUser(c),
+    csrfToken: c.get('csrfToken') as string,
+    group: g,
+    allUsers: Users.listAll(),
+    memberUserIds: memberIds,
+    flash,
+  }));
+});
+
+const GroupUpdateInput = z.object({
+  name: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'INVALID_GROUP_NAME'),
+  description: z.string().max(500).optional().default(''),
+});
+
+adminRoutes.post('/groups/:id', async (c) => {
+  const g = Groups.findById(c.req.param('id'));
+  if (!g) return c.notFound();
+  const body = await parseBodyCsrf(c);
+  if (!body) return c.text('CSRF invalid', 403);
+
+  const renderError = (error: string, fd: any) => {
+    const memberIds = new Set(Groups.membersOf(g.id).map((m) => m.id));
+    return html(c, groupEditPage({
+      user: navUser(c),
+      csrfToken: c.get('csrfToken') as string,
+      group: g,
+      allUsers: Users.listAll(),
+      memberUserIds: memberIds,
+      error,
+      formData: fd,
+    }), 400);
+  };
+
+  const parsed = GroupUpdateInput.safeParse(body);
+  if (!parsed.success) {
+    return renderError(translateZodMessage(parsed.error.errors[0]?.message ?? '') || t('Invalid form.', 'Formulaire invalide.'), body);
+  }
+  if (parsed.data.name !== g.name) {
+    const clash = Groups.findByName(parsed.data.name);
+    if (clash && clash.id !== g.id) {
+      return renderError(`${t('Group', 'Le groupe')} "${parsed.data.name}" ${t('already exists.', 'existe déjà.')}`, body);
+    }
+  }
+  Groups.update(g.id, { name: parsed.data.name, description: parsed.data.description });
+  Audit.log({
+    actorUserId: (c.get('user') as any).id,
+    action: 'admin.group.update',
+    target: g.id,
+    metadata: { name: parsed.data.name },
+    ip: getClientIp(c),
+  });
+  return c.redirect(`/admin/groups/${g.id}?flash=saved`);
+});
+
+adminRoutes.post('/groups/:id/members', async (c) => {
+  const g = Groups.findById(c.req.param('id'));
+  if (!g) return c.notFound();
+  const body = await parseBodyCsrf(c);
+  if (!body) return c.text('CSRF invalid', 403);
+  const rawIds = Array.isArray(body.users) ? body.users : (body.users ? [body.users] : []);
+  const validIds = rawIds.map((x: any) => String(x)).filter((id: string) => Users.findById(id));
+  Groups.setMembers(g.id, validIds);
+  Audit.log({
+    actorUserId: (c.get('user') as any).id,
+    action: 'admin.group.update',
+    target: g.id,
+    metadata: { members: validIds.length },
+    ip: getClientIp(c),
+  });
+  return c.redirect(`/admin/groups/${g.id}?flash=members_saved`);
+});
+
 adminRoutes.post('/groups/:id/delete', async (c) => {
   const g = Groups.findById(c.req.param('id'));
   if (!g) return c.notFound();
@@ -457,6 +538,7 @@ adminRoutes.get('/clients/new', (c) => {
 const ClientNewInput = z.object({
   id: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'INVALID_CLIENT_ID'),
   name: z.string().min(1).max(200),
+  home_url: z.string().optional().default(''),
   redirect_uris: z.string().min(1),
   post_logout_uris: z.string().optional().default(''),
 });
@@ -465,38 +547,45 @@ adminRoutes.post('/clients', async (c) => {
   const body = await parseBodyCsrf(c);
   if (!body) return c.text('CSRF invalid', 403);
 
+  const renderError = (error: string) => html(c, clientNewPage({
+    user: navUser(c),
+    csrfToken: c.get('csrfToken') as string,
+    error,
+    formData: body as any,
+  }), 400);
+
   const parsed = ClientNewInput.safeParse(body);
   if (!parsed.success) {
-    return html(c, clientNewPage({
-      user: navUser(c),
-      csrfToken: c.get('csrfToken') as string,
-      error: translateZodMessage(parsed.error.errors[0]?.message ?? '') || t('Invalid.', 'Invalide.'),
-      formData: body as any,
-    }), 400);
+    return renderError(translateZodMessage(parsed.error.errors[0]?.message ?? '') || t('Invalid.', 'Invalide.'));
   }
 
   if (Clients.findById(parsed.data.id)) {
-    return html(c, clientNewPage({
-      user: navUser(c),
-      csrfToken: c.get('csrfToken') as string,
-      error: `${t('Client ID', 'Le client ID')} "${parsed.data.id}" ${t('already exists.', 'existe déjà.')}`,
-      formData: body as any,
-    }), 400);
+    return renderError(`${t('Client ID', 'Le client ID')} "${parsed.data.id}" ${t('already exists.', 'existe déjà.')}`);
   }
 
   const redirectUris = parsed.data.redirect_uris.split('\n').map((s) => s.trim()).filter(Boolean);
   const logoutUris = parsed.data.post_logout_uris.split('\n').map((s) => s.trim()).filter(Boolean);
 
-  // URL validation
   for (const u of [...redirectUris, ...logoutUris]) {
-    try { new URL(u); } catch {
-      return html(c, clientNewPage({
-        user: navUser(c),
-        csrfToken: c.get('csrfToken') as string,
-        error: `${t('Invalid URL:', 'URL invalide :')} ${u}`,
-        formData: body as any,
-      }), 400);
+    try { new URL(u); } catch { return renderError(`${t('Invalid URL:', 'URL invalide :')} ${u}`); }
+  }
+
+  let homeUrl: string | null = null;
+  if (parsed.data.home_url.trim()) {
+    try { new URL(parsed.data.home_url); } catch {
+      return renderError(`${t('Invalid URL:', 'URL invalide :')} ${parsed.data.home_url}`);
     }
+    homeUrl = parsed.data.home_url.trim().slice(0, 500);
+  }
+
+  // Optional logo at creation time.
+  let logoDataUrl: string | null = null;
+  const logoUpload = await parseImageUpload(body.logo, { allowedMimes: LOGO_MIMES });
+  if (logoUpload.status === 'ok') {
+    logoDataUrl = logoUpload.dataUrl;
+  } else {
+    const e = uploadErrorMessage(logoUpload, 'Logo');
+    if (e) return renderError(e);
   }
 
   const { client, secret } = await Clients.create({
@@ -504,16 +593,19 @@ adminRoutes.post('/clients', async (c) => {
     name: parsed.data.name,
     redirect_uris: redirectUris,
     post_logout_uris: logoutUris,
+    home_url: homeUrl,
   });
+  if (logoDataUrl) {
+    Brand.updateClient(client.id, { logo_data_url: logoDataUrl });
+  }
   Audit.log({
     actorUserId: (c.get('user') as any).id,
     action: 'admin.client.create',
     target: client.id,
-    metadata: { name: client.name },
+    metadata: { name: client.name, home_url: homeUrl, logo: !!logoDataUrl },
     ip: getClientIp(c),
   });
 
-  // Dedicated page with "Back to applications" button
   return html(c, clientSecretPage({
     user: navUser(c),
     csrfToken: c.get('csrfToken') as string,
@@ -522,12 +614,17 @@ adminRoutes.post('/clients', async (c) => {
   }));
 });
 
-adminRoutes.get('/clients/:id/access', (c) => {
+// ── Client edit (unified: identity + URLs + access + secret + delete)
+adminRoutes.get('/clients/:id', (c) => {
   const client = Clients.findById(c.req.param('id'));
   if (!client) return c.notFound();
-  const flash = c.req.query('flash') === 'saved' ? t('Access saved.', 'Accès enregistrés.') : null;
+  const flashKey = c.req.query('flash');
+  const flash = flashKey === 'saved' ? t('Application saved.', 'Application enregistrée.')
+              : flashKey === 'access_saved' ? t('Access saved.', 'Accès enregistrés.')
+              : null;
   const principals = Access.list(client.id);
-  return html(c, clientAccessPage({
+  const branding = Brand.getClient(client.id);
+  return html(c, clientEditPage({
     user: navUser(c),
     csrfToken: c.get('csrfToken') as string,
     client: { id: client.id, name: client.name, redirect_uris: JSON.parse(client.redirect_uris), post_logout_uris: JSON.parse(client.post_logout_uris), allowed_scopes: JSON.parse(client.allowed_scopes), home_url: client.home_url ?? null, created_at: client.created_at },
@@ -535,7 +632,119 @@ adminRoutes.get('/clients/:id/access', (c) => {
     allGroups: Groups.listAll(),
     selectedUsers: new Set(principals.filter((p) => p.type === 'user').map((p) => p.id)),
     selectedGroups: new Set(principals.filter((p) => p.type === 'group').map((p) => p.id)),
+    logoDataUrl: branding.logo_data_url,
     flash,
+  }));
+});
+
+// Backward-compat: legacy /access URL redirects to the unified edit page.
+adminRoutes.get('/clients/:id/access', (c) => {
+  const id = c.req.param('id');
+  if (!Clients.findById(id)) return c.notFound();
+  return c.redirect(`/admin/clients/${id}`);
+});
+
+const ClientUpdateInput = z.object({
+  name: z.string().min(1).max(200),
+  redirect_uris: z.string().min(1),
+  post_logout_uris: z.string().optional().default(''),
+  home_url: z.string().optional().default(''),
+});
+
+adminRoutes.post('/clients/:id', async (c) => {
+  const id = c.req.param('id');
+  const client = Clients.findById(id);
+  if (!client) return c.notFound();
+  const body = await parseBodyCsrf(c);
+  if (!body) return c.text('CSRF invalid', 403);
+
+  const renderError = (error: string, fd: any) => {
+    const principals = Access.list(client.id);
+    return html(c, clientEditPage({
+      user: navUser(c),
+      csrfToken: c.get('csrfToken') as string,
+      client: { id: client.id, name: client.name, redirect_uris: JSON.parse(client.redirect_uris), post_logout_uris: JSON.parse(client.post_logout_uris), allowed_scopes: JSON.parse(client.allowed_scopes), home_url: client.home_url ?? null, created_at: client.created_at },
+      allUsers: Users.listAll(),
+      allGroups: Groups.listAll(),
+      selectedUsers: new Set(principals.filter((p) => p.type === 'user').map((p) => p.id)),
+      selectedGroups: new Set(principals.filter((p) => p.type === 'group').map((p) => p.id)),
+      logoDataUrl: Brand.getClient(client.id).logo_data_url,
+      error,
+      formData: fd,
+    }), 400);
+  };
+
+  const parsed = ClientUpdateInput.safeParse(body);
+  if (!parsed.success) {
+    return renderError(translateZodMessage(parsed.error.errors[0]?.message ?? '') || t('Invalid form.', 'Formulaire invalide.'), body);
+  }
+
+  const redirectUris = parsed.data.redirect_uris.split('\n').map((s) => s.trim()).filter(Boolean);
+  const logoutUris = parsed.data.post_logout_uris.split('\n').map((s) => s.trim()).filter(Boolean);
+  for (const u of [...redirectUris, ...logoutUris]) {
+    try { new URL(u); } catch {
+      return renderError(`${t('Invalid URL:', 'URL invalide :')} ${u}`, body);
+    }
+  }
+  let homeUrl: string | null = null;
+  if (parsed.data.home_url.trim()) {
+    try { new URL(parsed.data.home_url); } catch {
+      return renderError(`${t('Invalid URL:', 'URL invalide :')} ${parsed.data.home_url}`, body);
+    }
+    homeUrl = parsed.data.home_url.trim().slice(0, 500);
+  }
+
+  // Logo upload (optional). Remove takes precedence over a new file.
+  const brandPatch: any = {};
+  if (body.remove_logo === '1') {
+    brandPatch.logo_data_url = null;
+  } else {
+    const r = await parseImageUpload(body.logo, { allowedMimes: LOGO_MIMES });
+    if (r.status === 'ok') brandPatch.logo_data_url = r.dataUrl;
+    else {
+      const e = uploadErrorMessage(r, 'Logo');
+      if (e) return renderError(e, body);
+    }
+  }
+
+  Clients.update(client.id, {
+    name: parsed.data.name,
+    redirect_uris: redirectUris,
+    post_logout_uris: logoutUris,
+  });
+  Clients.setHomeUrl(client.id, homeUrl);
+  if (Object.keys(brandPatch).length) Brand.updateClient(client.id, brandPatch);
+
+  Audit.log({
+    actorUserId: (c.get('user') as any).id,
+    action: 'admin.client.update',
+    target: client.id,
+    metadata: { name: parsed.data.name, redirect_count: redirectUris.length, logout_count: logoutUris.length },
+    ip: getClientIp(c),
+  });
+  return c.redirect(`/admin/clients/${client.id}?flash=saved`);
+});
+
+adminRoutes.post('/clients/:id/rotate-secret', async (c) => {
+  const id = c.req.param('id');
+  const client = Clients.findById(id);
+  if (!client) return c.notFound();
+  const body = await parseBodyCsrf(c);
+  if (!body) return c.text('CSRF invalid', 403);
+
+  const secret = Clients.rotateSecret(client.id);
+  if (!secret) return c.notFound();
+  Audit.log({
+    actorUserId: (c.get('user') as any).id,
+    action: 'admin.client.rotate_secret',
+    target: client.id,
+    ip: getClientIp(c),
+  });
+  return html(c, clientSecretPage({
+    user: navUser(c),
+    csrfToken: c.get('csrfToken') as string,
+    id: client.id,
+    secret,
   }));
 });
 
@@ -579,7 +788,7 @@ adminRoutes.post('/clients/:id/access', async (c) => {
     },
     ip: getClientIp(c),
   });
-  return c.redirect(`/admin/clients/${client.id}/access?flash=saved`);
+  return c.redirect(`/admin/clients/${client.id}?flash=access_saved`);
 });
 
 // Per-client branding (per-app appearance)

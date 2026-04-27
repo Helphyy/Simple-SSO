@@ -2,12 +2,20 @@ import { html, raw, type Raw } from '../lib/html.js';
 import { layout } from './layout.js';
 import type { OidcClientPublic } from '../models/clients.js';
 import type { User } from '../models/users.js';
-import { t } from '../lib/i18n.js';
+import { getLang, t } from '../lib/i18n.js';
 
 type AppCard = OidcClientPublic & { logo: string | null; displayName: string };
 
 function initial(name: string): string {
   return (name.trim()[0] ?? '?').toUpperCase();
+}
+
+function faviconFor(homeUrl: string | null): string | null {
+  if (!homeUrl) return null;
+  try {
+    const u = new URL(homeUrl);
+    return `${u.origin}/favicon.ico`;
+  } catch { return null; }
 }
 
 export function userHubPage(opts: {
@@ -48,7 +56,9 @@ export function userHubPage(opts: {
             <div class="app-card-head">
               ${a.logo
                 ? html`<img src="${a.logo}" alt="" class="app-card-logo"/>`
-                : html`<span class="app-card-logo-fallback">${initial(a.displayName)}</span>`}
+                : faviconFor(a.home_url)
+                  ? html`<span class="app-card-logo-wrap" data-letter="${initial(a.displayName)}"><img src="${faviconFor(a.home_url)!}" alt="" class="app-card-logo"/></span>`
+                  : html`<span class="app-card-logo-fallback">${initial(a.displayName)}</span>`}
               <svg class="app-card-arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M5 11l6-6M6 4h5v5"/>
               </svg>
@@ -128,6 +138,21 @@ export function profilePage(opts: {
             <button type="submit" class="btn-primary btn-md">${t('Change password', 'Changer le mot de passe')}</button>
           </div>
         </form>
+      </div>
+
+      <div class="card">
+        <div class="settings-section-head">
+          <h2>${t('Preferences', 'Préférences')}</h2>
+          <p class="sub">${t('Display preferences for your account.', "Préférences d'affichage de ton compte.")}</p>
+        </div>
+        ${settingsRow(t('Language', 'Langue'), undefined, html`
+          <form method="POST" action="/language" class="lang-switch">
+            <input type="hidden" name="next" value="/account"/>
+            <button type="submit" name="lang" value="en" class="lang-btn${getLang() === 'en' ? ' is-active' : ''}">English</button>
+            <span class="lang-sep" aria-hidden="true">·</span>
+            <button type="submit" name="lang" value="fr" class="lang-btn${getLang() === 'fr' ? ' is-active' : ''}">Français</button>
+          </form>
+        `, true)}
       </div>
     </div>
   `;
