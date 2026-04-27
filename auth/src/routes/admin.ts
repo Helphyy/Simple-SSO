@@ -86,7 +86,7 @@ adminRoutes.get('/users/new', (c) => {
 
 const UserNewInput = z.object({
   username: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'INVALID_USERNAME_FORMAT'),
-  email: z.string().email().or(z.literal('')).optional().default(''),
+  email: z.string().email(),
   first_name: z.string().max(100).optional().default(''),
   last_name: z.string().max(100).optional().default(''),
   role: z.enum(['admin', 'member']),
@@ -191,7 +191,7 @@ adminRoutes.get('/users/:id', (c) => {
 
 const UserUpdateInput = z.object({
   username: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'INVALID_USERNAME_FORMAT'),
-  email: z.string().email().or(z.literal('')).optional().default(''),
+  email: z.string().email(),
   first_name: z.string().max(100).optional().default(''),
   last_name: z.string().max(100).optional().default(''),
   role: z.enum(['admin', 'member']),

@@ -117,7 +117,7 @@ export function profilePage(opts: {
           ${settingsRow(t('Username', 'Identifiant'), t('Editable only by an administrator.', 'Modifiable uniquement par un administrateur.'), html`<input type="text" value="${u.username}" disabled/>`, true)}
           ${settingsRow(t('First name', 'Prénom'), undefined, html`<input name="first_name" type="text" value="${u.first_name}"/>`)}
           ${settingsRow(t('Last name', 'Nom'), undefined, html`<input name="last_name" type="text" value="${u.last_name}"/>`)}
-          ${settingsRow('Email', t('Optional.', 'Optionnel.'), html`<input name="email" type="email" value="${u.email ?? ''}"/>`)}
+          ${settingsRow('Email', t('Required.', 'Requis.'), html`<input name="email" type="email" required value="${u.email ?? ''}"/>`)}
           <div class="form-actions">
             <button type="submit" class="btn-primary btn-md">${t('Save', 'Enregistrer')}</button>
           </div>

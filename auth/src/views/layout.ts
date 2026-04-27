@@ -565,6 +565,12 @@ export function layout(opts: LayoutOpts): Raw {
       overflow: hidden;
     }
     .card-danger { border-color: var(--danger-border); }
+    /* Une card contenant un picker doit laisser sortir le dropdown.
+       On désactive le clipping et on reporte l'arrondi sur les enfants flush. */
+    .card:has(.picker) { overflow: visible; }
+    .card:has(.picker) > *:first-child { border-top-left-radius: var(--radius-card); border-top-right-radius: var(--radius-card); }
+    .card:has(.picker) > *:last-child { border-bottom-left-radius: var(--radius-card); border-bottom-right-radius: var(--radius-card); }
+    .card:has(.picker) > form { border-radius: inherit; }
 
     /* ── Card section (segment interne d'une card) ──────── */
     .card-section {

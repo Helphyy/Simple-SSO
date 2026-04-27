@@ -281,7 +281,7 @@ export function userNewPage(opts: {
             <p class="sub">${t('Username and personal information.', 'Identifiant et informations personnelles.')}</p>
           </div>
           ${settingsRow(t('Username', 'Identifiant'), t('Letters, digits, . _ -', 'Lettres, chiffres, . _ -'), html`<input name="username" type="text" value="${fd.username ?? ''}" required/>`, true)}
-          ${settingsRow('Email', t('Optional', 'Optionnel'), html`<input name="email" type="email" value="${fd.email ?? ''}"/>`)}
+          ${settingsRow('Email', t('Required', 'Requis'), html`<input name="email" type="email" required value="${fd.email ?? ''}"/>`)}
           ${settingsRow(t('First name', 'Prénom'), undefined, html`<input name="first_name" type="text" value="${fd.first_name ?? ''}"/>`)}
           ${settingsRow(t('Last name', 'Nom'), undefined, html`<input name="last_name" type="text" value="${fd.last_name ?? ''}"/>`)}
 
@@ -379,7 +379,7 @@ export function userEditPage(opts: {
             <p class="sub">${t('Username, contact and activation.', 'Identifiant, contact et activation.')}</p>
           </div>
           ${settingsRow(t('Username', 'Identifiant'), t('Letters, digits, . _ -', 'Lettres, chiffres, . _ -'), html`<input name="username" type="text" value="${tg.username}" required/>`, true)}
-          ${settingsRow('Email', t('Optional', 'Optionnel'), html`<input name="email" type="email" value="${tg.email ?? ''}"/>`)}
+          ${settingsRow('Email', t('Required', 'Requis'), html`<input name="email" type="email" required value="${tg.email ?? ''}"/>`)}
           ${settingsRow(t('First name', 'Prénom'), undefined, html`<input name="first_name" type="text" value="${tg.first_name}"/>`)}
           ${settingsRow(t('Last name', 'Nom'), undefined, html`<input name="last_name" type="text" value="${tg.last_name}"/>`)}
           ${settingsRow(t('Role', 'Rôle'), undefined, html`

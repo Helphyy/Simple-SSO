@@ -95,7 +95,7 @@ export function setupPage(opts: {
       </div>
       <div class="form-field">
         <label class="label">Email</label>
-        <input name="email" type="email" value="${opts.email ?? ''}" class="w-full" placeholder="${t('optional', 'optionnel')}"/>
+        <input name="email" type="email" required value="${opts.email ?? ''}" class="w-full" placeholder="admin@example.com"/>
       </div>
       <div class="form-field">
         <label class="label">${t('Password', 'Mot de passe')}</label>

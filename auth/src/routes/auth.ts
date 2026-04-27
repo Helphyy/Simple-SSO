@@ -72,7 +72,7 @@ authRoutes.get('/setup', (c) => {
 
 const SetupInput = z.object({
   username: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'INVALID_USERNAME_FORMAT'),
-  email: z.string().email().or(z.literal('')).optional().default(''),
+  email: z.string().email(),
   password: z.string().min(12),
   confirm: z.string().min(12),
   csrf: z.string().optional(),
@@ -285,7 +285,7 @@ authRoutes.get('/account', (c) => {
 const ProfileInput = z.object({
   first_name: z.string().max(100).optional().default(''),
   last_name: z.string().max(100).optional().default(''),
-  email: z.string().email().or(z.literal('')).optional().default(''),
+  email: z.string().email(),
   csrf: z.string(),
 });
 
