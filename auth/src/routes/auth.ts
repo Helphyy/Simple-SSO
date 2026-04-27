@@ -27,6 +27,7 @@ import { csrfValid } from '../lib/csrf.js';
 import { getClientIp } from '../middleware/security.js';
 import { unsign } from '../lib/signed_cookie.js';
 import { getCookie } from 'hono/cookie';
+import { isLang, setLangCookie, t, translateZodMessage } from '../lib/i18n.js';
 
 export const authRoutes = new Hono<AppEnv>();
 
@@ -57,6 +58,7 @@ function verifyLoginCsrf(cookieToken: string | undefined, formToken: unknown): b
 
 // ── GET /setup ────────────────────────────────────────────────────
 // Available only when setup has never been completed (first run).
+
 function isSetupCompleted(): boolean {
   return Settings.get().setup_completed === 1;
 }
@@ -69,7 +71,7 @@ authRoutes.get('/setup', (c) => {
 });
 
 const SetupInput = z.object({
-  username: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'Format identifiant invalide.'),
+  username: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'INVALID_USERNAME_FORMAT'),
   email: z.string().email().or(z.literal('')).optional().default(''),
   password: z.string().min(12),
   confirm: z.string().min(12),
@@ -90,19 +92,19 @@ authRoutes.post('/setup', async (c) => {
     return c.body(render$(setupPage({ error: err, csrfToken, username: fd?.username, email: fd?.email })));
   };
 
-  if (!verifyLoginCsrf(cookieCsrf, formCsrf)) return fail('Session expirée, réessaie.');
+  if (!verifyLoginCsrf(cookieCsrf, formCsrf)) return fail(t('Session expired, please try again.', 'Session expirée, réessaie.'));
 
   const parsed = SetupInput.safeParse(body);
-  if (!parsed.success) return fail(parsed.error.errors[0]?.message ?? 'Formulaire invalide.', body);
+  if (!parsed.success) return fail(translateZodMessage(parsed.error.errors[0]?.message ?? '') || t('Invalid form.', 'Formulaire invalide.'), body);
 
   const input = parsed.data;
-  if (input.password !== input.confirm) return fail('Les deux mots de passe ne correspondent pas.', input);
+  if (input.password !== input.confirm) return fail(t('The two passwords do not match.', 'Les deux mots de passe ne correspondent pas.'), input);
 
   const policy = validatePassword(input.password, [input.username, input.email].filter(Boolean) as string[]);
   if (policy) {
     const msg = policy.code === 'too_short'
-      ? `Mot de passe trop court (${policy.min} min).`
-      : 'Mot de passe trop faible.';
+      ? `${t('Password too short', 'Mot de passe trop court')} (${policy.min} min).`
+      : t('Password too weak.', 'Mot de passe trop faible.');
     return fail(msg, input);
   }
 
@@ -147,7 +149,7 @@ authRoutes.get('/login', (c) => {
   const next = c.req.query('next') ?? '/admin';
   if (user) return c.redirect((next.startsWith('/') && !next.startsWith('//')) ? next : '/admin');
   const flashKey = c.req.query('flash');
-  const flash = flashKey === 'password_changed' ? 'Mot de passe modifié. Vous pouvez vous reconnecter.' : null;
+  const flash = flashKey === 'password_changed' ? t('Password changed. You can sign in again.', 'Mot de passe modifié. Vous pouvez vous reconnecter.') : null;
   const csrfToken = issueLoginCsrf(c);
   const clientId = c.req.query('client') ?? null;
   c.header('Content-Type', 'text/html; charset=utf-8');
@@ -177,20 +179,20 @@ authRoutes.post('/login', async (c) => {
   const cookieCsrf = getCookie(c, LOGIN_CSRF_COOKIE);
   const formCsrf = typeof (body as any).csrf === 'string' ? (body as any).csrf : '';
   if (!verifyLoginCsrf(cookieCsrf, formCsrf)) {
-    return renderFail('', 'Session expirée, réessaie.');
+    return renderFail('', t('Session expired, please try again.', 'Session expirée, réessaie.'));
   }
 
   if (!parsed.success) {
-    return renderFail('', 'Identifiants invalides.');
+    return renderFail('', t('Invalid credentials.', 'Identifiants invalides.'));
   }
   const { username, password, next } = parsed.data;
 
   const settings = Settings.get();
   if (LoginAttempts.isLocked(username, ip)) {
-    return renderFail(username, `Trop de tentatives. Réessaie dans ${settings.lockout_window_minutes} minutes.`);
+    return renderFail(username, `${t('Too many attempts. Try again in', 'Trop de tentatives. Réessaie dans')} ${settings.lockout_window_minutes} ${t('minutes.', 'minutes.')}`);
   }
 
-  // Constant-time : 500 ms minimum pour neutraliser timing attacks
+  // Constant-time: 500 ms minimum to neutralize timing attacks
   const ok = await constantTime(
     (async () => {
       const mode = settings.login_mode;
@@ -199,8 +201,8 @@ authRoutes.post('/login', async (c) => {
         mode === 'email'    ? Users.findByEmail(username) :
                               (Users.findByUsername(username) ?? Users.findByEmail(username));
       if (!user) {
-        // Dummy verify pour que le temps dépendant du hash argon2 soit constant
-        // (hash d'un password bidon, jeté)
+        // Dummy verify so argon2 hash-dependent time stays constant
+        // (hash of a dummy password, discarded)
         await verifyPassword(
           '$argon2id$v=19$m=65536,t=3,p=4$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
           password
@@ -222,10 +224,10 @@ authRoutes.post('/login', async (c) => {
       target: username,
       ip,
     });
-    return renderFail(username, 'Identifiants invalides.');
+    return renderFail(username, t('Invalid credentials.', 'Identifiants invalides.'));
   }
 
-  // Succès : rotation de session ID (sans réutiliser l'éventuelle précédente)
+  // Success: session ID rotation (do not reuse any previous one)
   const session = Sessions.create(ok.id, {
     ip,
     userAgent: c.req.header('user-agent') ?? null,
@@ -240,7 +242,7 @@ authRoutes.post('/login', async (c) => {
   });
   issueSessionCookie(c, session.id);
 
-  // Redirect : change-password ou destination
+  // Redirect: change-password or destination
   const dest = ok.must_change_password
     ? '/change-password'
     : (next && (next.startsWith('/') && !next.startsWith('//')) ? next : '/admin');
@@ -273,8 +275,8 @@ authRoutes.get('/account', (c) => {
   const csrf = c.get('csrfToken');
   if (!user || !csrf) return c.redirect('/login');
   const flashKey = c.req.query('flash');
-  const flash = flashKey === 'saved' ? 'Profil enregistré.'
-              : flashKey === 'password' ? 'Mot de passe modifié.'
+  const flash = flashKey === 'saved' ? t('Profile saved.', 'Profil enregistré.')
+              : flashKey === 'password' ? t('Password changed.', 'Mot de passe modifié.')
               : null;
   c.header('Content-Type', 'text/html; charset=utf-8');
   return c.body(render$(profilePage({ user, csrfToken: csrf, flash })));
@@ -298,14 +300,14 @@ authRoutes.post('/account', async (c) => {
   if (!parsed.success) {
     c.header('Content-Type', 'text/html; charset=utf-8');
     c.status(400);
-    return c.body(render$(profilePage({ user, csrfToken: csrf, error: parsed.error.errors[0]?.message ?? 'Invalide.' })));
+    return c.body(render$(profilePage({ user, csrfToken: csrf, error: translateZodMessage(parsed.error.errors[0]?.message ?? '') || t('Invalid.', 'Invalide.') })));
   }
   if (parsed.data.email && parsed.data.email !== user.email) {
     const clash = Users.findByEmail(parsed.data.email);
     if (clash && clash.id !== user.id) {
       c.header('Content-Type', 'text/html; charset=utf-8');
       c.status(400);
-      return c.body(render$(profilePage({ user, csrfToken: csrf, error: 'Email déjà utilisé.' })));
+      return c.body(render$(profilePage({ user, csrfToken: csrf, error: t('Email already used.', 'Email déjà utilisé.') })));
     }
   }
   Users.update(user.id, {
@@ -337,18 +339,45 @@ authRoutes.post('/account/password', async (c) => {
     c.status(400);
     return c.body(render$(profilePage({ user, csrfToken: csrf, error: msg })));
   };
-  if (!parsed.success) return renderErr('Formulaire invalide.');
-  if (parsed.data.next !== parsed.data.confirm) return renderErr('Les deux mots de passe ne correspondent pas.');
+  if (!parsed.success) return renderErr(t('Invalid form.', 'Formulaire invalide.'));
+  if (parsed.data.next !== parsed.data.confirm) return renderErr(t('The two passwords do not match.', 'Les deux mots de passe ne correspondent pas.'));
   const valid = await verifyPassword(user.password_hash, parsed.data.current);
-  if (!valid) return renderErr('Mot de passe actuel incorrect.');
+  if (!valid) return renderErr(t('Current password is incorrect.', 'Mot de passe actuel incorrect.'));
   const policy = validatePassword(parsed.data.next, [user.username, user.email, user.first_name, user.last_name].filter(Boolean) as string[]);
   if (policy) {
-    return renderErr(policy.code === 'too_short' ? `Mot de passe trop court (${policy.min} min).` : 'Mot de passe trop faible.');
+    return renderErr(policy.code === 'too_short' ? `${t('Password too short', 'Mot de passe trop court')} (${policy.min} min).` : t('Password too weak.', 'Mot de passe trop faible.'));
   }
   const hash = await hashPassword(parsed.data.next);
   Users.setPassword(user.id, hash, false);
   Audit.log({ actorUserId: user.id, action: 'user.password.changed', ip: getClientIp(c) });
   return c.redirect('/account?flash=password');
+});
+
+// ── POST /language ────────────────────────────────────────────────
+// Public (no CSRF on this benign UX preference; cookie-based, SameSite=Lax).
+authRoutes.post('/language', async (c) => {
+  const body = await c.req.parseBody();
+  const lang = typeof body.lang === 'string' ? body.lang : '';
+  if (isLang(lang)) setLangCookie(c, lang);
+
+  const safeLocalPath = (p: string): string | null => {
+    if (!p.startsWith('/') || p.startsWith('//') || p.startsWith('/\\')) return null;
+    return p;
+  };
+
+  let back: string | null = null;
+  if (typeof body.next === 'string') back = safeLocalPath(body.next);
+  if (!back) {
+    const ref = c.req.header('referer');
+    const origin = new URL(c.req.url).origin;
+    if (ref && ref.startsWith(origin + '/')) {
+      try {
+        const u = new URL(ref);
+        back = safeLocalPath(u.pathname + u.search);
+      } catch { /* ignore */ }
+    }
+  }
+  return c.redirect(back ?? '/');
 });
 
 // ── POST /logout ──────────────────────────────────────────────────
@@ -413,27 +442,27 @@ authRoutes.post('/change-password', async (c) => {
     })));
   };
 
-  if (!parsed.success) return renderFail('Formulaire invalide.');
-  if (!csrfValid(session.id, parsed.data.csrf)) return renderFail('Jeton CSRF invalide.');
+  if (!parsed.success) return renderFail(t('Invalid form.', 'Formulaire invalide.'));
+  if (!csrfValid(session.id, parsed.data.csrf)) return renderFail(t('Invalid CSRF token.', 'Jeton CSRF invalide.'));
 
   const { current, next: nextPw, confirm } = parsed.data;
-  if (nextPw !== confirm) return renderFail('Les deux mots de passe ne correspondent pas.');
-  if (nextPw === current) return renderFail('Le nouveau mot de passe doit être différent.');
+  if (nextPw !== confirm) return renderFail(t('The two passwords do not match.', 'Les deux mots de passe ne correspondent pas.'));
+  if (nextPw === current) return renderFail(t('The new password must be different.', 'Le nouveau mot de passe doit être différent.'));
 
   const valid = await verifyPassword(user.password_hash, current);
-  if (!valid) return renderFail('Mot de passe actuel incorrect.');
+  if (!valid) return renderFail(t('Current password is incorrect.', 'Mot de passe actuel incorrect.'));
 
   const policyErr = validatePassword(nextPw, [user.username, user.email, user.first_name, user.last_name].filter(Boolean) as string[]);
   if (policyErr) {
-    if (policyErr.code === 'too_short') return renderFail(`Mot de passe trop court (${policyErr.min} caractères minimum).`);
-    return renderFail('Mot de passe trop faible : ' + (policyErr.suggestions[0] ?? 'choisis quelque chose de plus complexe.'));
+    if (policyErr.code === 'too_short') return renderFail(`${t('Password too short', 'Mot de passe trop court')} (${policyErr.min} ${t('characters minimum', 'caractères minimum')}).`);
+    return renderFail(t('Password too weak: ', 'Mot de passe trop faible : ') + (policyErr.suggestions[0] ?? t('choose something more complex.', 'choisis quelque chose de plus complexe.')));
   }
 
   const hash = await hashPassword(nextPw);
   Users.setPassword(user.id, hash, false);
   Sessions.clearPwChange(session.id);
-  // Invalider toutes les AUTRES sessions du user (pas celle qu'on utilise)
-  // Simplification MVP : on invalide tout puis on régénère celle-ci.
+  // Invalidate all OTHER sessions for the user (not the one we are using)
+  // MVP simplification: invalidate everything then regenerate this one.
   Sessions.destroyAllForUser(user.id);
   const fresh = Sessions.create(user.id, {
     ip: getClientIp(c),
@@ -449,7 +478,7 @@ authRoutes.post('/change-password', async (c) => {
   });
 
   if (user.role === 'admin') return c.redirect('/admin');
-  // Non-admin : pas de home sur l'IdP. On clôt la session et on renvoie au login.
+  // Non-admin: no home on the IdP. Close the session and send back to login.
   Sessions.destroyAllForUser(user.id);
   clearSessionCookie(c);
   return c.redirect('/login?flash=password_changed');

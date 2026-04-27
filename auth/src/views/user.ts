@@ -2,6 +2,7 @@ import { html, raw, type Raw } from '../lib/html.js';
 import { layout } from './layout.js';
 import type { OidcClientPublic } from '../models/clients.js';
 import type { User } from '../models/users.js';
+import { t } from '../lib/i18n.js';
 
 type AppCard = OidcClientPublic & { logo: string | null; displayName: string };
 
@@ -14,17 +15,19 @@ export function userHubPage(opts: {
   csrfToken: string;
   apps: AppCard[];
 }): Raw {
-  const greeting = opts.user.first_name ? `Bonjour, ${opts.user.first_name}.` : `Bonjour, ${opts.user.username}.`;
+  const greeting = opts.user.first_name
+    ? `${t('Hello,', 'Bonjour,')} ${opts.user.first_name}.`
+    : `${t('Hello,', 'Bonjour,')} ${opts.user.username}.`;
 
   const body = html`
     <div class="page-header fade-in">
       <div>
         <h1 class="page-title">${greeting}</h1>
         <p class="page-subtitle">${opts.apps.length === 0
-          ? 'Aucune application disponible.'
+          ? t('No applications available.', 'Aucune application disponible.')
           : opts.apps.length === 1
-            ? '1 application accessible.'
-            : `${opts.apps.length} applications accessibles.`}</p>
+            ? t('1 application available.', '1 application accessible.')
+            : `${opts.apps.length} ${t('applications available.', 'applications accessibles.')}`}</p>
       </div>
     </div>
 
@@ -34,8 +37,8 @@ export function userHubPage(opts: {
           <div class="empty-state-icon">
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="6" height="6" rx="1.3"/><rect x="11" y="3" width="6" height="6" rx="1.3"/><rect x="3" y="11" width="6" height="6" rx="1.3"/><rect x="11" y="11" width="6" height="6" rx="1.3"/></svg>
           </div>
-          <div class="empty-state-title">Aucune application disponible</div>
-          <p class="empty-state-body">Demande à un administrateur de t'autoriser à accéder à une application.</p>
+          <div class="empty-state-title">${t('No applications available', 'Aucune application disponible')}</div>
+          <p class="empty-state-body">${t('Ask an administrator to grant you access to an application.', "Demande à un administrateur de t'autoriser à accéder à une application.")}</p>
         </div>
       </div>
     ` : html`
@@ -58,7 +61,7 @@ export function userHubPage(opts: {
     `}
   `;
   return layout({
-    title: 'Accueil',
+    title: t('Home', 'Accueil'),
     body,
     user: { username: opts.user.username, role: opts.user.role },
     csrfToken: opts.csrfToken,
@@ -85,8 +88,8 @@ export function profilePage(opts: {
   const body = html`
     <div class="page-header fade-in">
       <div>
-        <h1 class="page-title">Mon profil</h1>
-        <p class="page-subtitle">Informations personnelles et mot de passe.</p>
+        <h1 class="page-title">${t('My profile', 'Mon profil')}</h1>
+        <p class="page-subtitle">${t('Personal information and password.', 'Informations personnelles et mot de passe.')}</p>
       </div>
     </div>
 
@@ -98,15 +101,15 @@ export function profilePage(opts: {
         <form method="POST" action="/account">
           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
           <div class="settings-section-head">
-            <h2>Identité</h2>
-            <p class="sub">Modifie ton nom et ton email.</p>
+            <h2>${t('Identity', 'Identité')}</h2>
+            <p class="sub">${t('Update your name and email.', 'Modifie ton nom et ton email.')}</p>
           </div>
-          ${settingsRow('Identifiant', 'Modifiable uniquement par un administrateur.', html`<input type="text" value="${u.username}" disabled/>`, true)}
-          ${settingsRow('Prénom', undefined, html`<input name="first_name" type="text" value="${u.first_name}"/>`)}
-          ${settingsRow('Nom', undefined, html`<input name="last_name" type="text" value="${u.last_name}"/>`)}
-          ${settingsRow('Email', 'Optionnel.', html`<input name="email" type="email" value="${u.email ?? ''}"/>`)}
+          ${settingsRow(t('Username', 'Identifiant'), t('Editable only by an administrator.', 'Modifiable uniquement par un administrateur.'), html`<input type="text" value="${u.username}" disabled/>`, true)}
+          ${settingsRow(t('First name', 'Prénom'), undefined, html`<input name="first_name" type="text" value="${u.first_name}"/>`)}
+          ${settingsRow(t('Last name', 'Nom'), undefined, html`<input name="last_name" type="text" value="${u.last_name}"/>`)}
+          ${settingsRow('Email', t('Optional.', 'Optionnel.'), html`<input name="email" type="email" value="${u.email ?? ''}"/>`)}
           <div class="form-actions">
-            <button type="submit" class="btn-primary btn-md">Enregistrer</button>
+            <button type="submit" class="btn-primary btn-md">${t('Save', 'Enregistrer')}</button>
           </div>
         </form>
       </div>
@@ -115,21 +118,21 @@ export function profilePage(opts: {
         <form method="POST" action="/account/password">
           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
           <div class="settings-section-head">
-            <h2>Mot de passe</h2>
-            <p class="sub">Choisis un mot de passe d'au moins 12 caractères.</p>
+            <h2>${t('Password', 'Mot de passe')}</h2>
+            <p class="sub">${t('Choose a password of at least 12 characters.', "Choisis un mot de passe d'au moins 12 caractères.")}</p>
           </div>
-          ${settingsRow('Mot de passe actuel', undefined, html`<input name="current" type="password" autocomplete="current-password" required/>`, true)}
-          ${settingsRow('Nouveau mot de passe', 'Min 12 caractères.', html`<input name="next" type="password" autocomplete="new-password" required minlength="12"/>`)}
-          ${settingsRow('Confirmation', undefined, html`<input name="confirm" type="password" autocomplete="new-password" required minlength="12"/>`)}
+          ${settingsRow(t('Current password', 'Mot de passe actuel'), undefined, html`<input name="current" type="password" autocomplete="current-password" required/>`, true)}
+          ${settingsRow(t('New password', 'Nouveau mot de passe'), t('Min 12 characters.', 'Min 12 caractères.'), html`<input name="next" type="password" autocomplete="new-password" required minlength="12"/>`)}
+          ${settingsRow(t('Confirmation', 'Confirmation'), undefined, html`<input name="confirm" type="password" autocomplete="new-password" required minlength="12"/>`)}
           <div class="form-actions">
-            <button type="submit" class="btn-primary btn-md">Changer le mot de passe</button>
+            <button type="submit" class="btn-primary btn-md">${t('Change password', 'Changer le mot de passe')}</button>
           </div>
         </form>
       </div>
     </div>
   `;
   return layout({
-    title: 'Profil',
+    title: t('Profile', 'Profil'),
     body,
     user: { username: u.username, role: u.role },
     csrfToken: opts.csrfToken,
@@ -137,6 +140,6 @@ export function profilePage(opts: {
   });
 }
 
-// We need to also export _ = raw stub used by profile (avoid lint warning unused)
+// Also export _ = raw stub used by profile (avoid lint warning unused)
 const _unused = raw('');
 void _unused;

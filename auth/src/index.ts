@@ -8,6 +8,7 @@ import { Sessions } from './models/sessions.js';
 import { LoginAttempts } from './models/login_attempts.js';
 import { loadSession } from './middleware/session.js';
 import { securityHeaders } from './middleware/security.js';
+import { langMiddleware } from './lib/i18n.js';
 import { authRoutes } from './routes/auth.js';
 import { adminRoutes } from './routes/admin.js';
 import { handleInteraction } from './routes/interaction.js';
@@ -17,6 +18,7 @@ import { provider } from './oidc/provider.js';
 const app = new Hono<AppEnv>();
 
 app.use('*', securityHeaders);
+app.use('*', langMiddleware);
 app.use('*', loadSession);
 
 app.get('/healthz', (c) => c.json({ status: 'ok' }));

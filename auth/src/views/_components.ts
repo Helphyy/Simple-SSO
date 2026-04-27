@@ -1,4 +1,5 @@
 import { html, raw, type Raw } from '../lib/html.js';
+import { t } from '../lib/i18n.js';
 
 // ── Badge ──────────────────────────────────────────────────────────
 export type BadgeVariant = 'admin' | 'member' | 'success' | 'danger' | 'warning' | 'neutral';
@@ -8,7 +9,7 @@ export function badge(variant: BadgeVariant, label: string): Raw {
 }
 
 // ── Status (dot + label) ──────────────────────────────────────────
-export function statusDot(active: boolean, labelActive = 'Actif', labelOff = 'Désactivé'): Raw {
+export function statusDot(active: boolean, labelActive = t('Active', 'Actif'), labelOff = t('Disabled', 'Désactivé')): Raw {
   return html`<span class="status${active ? '' : ' status-off'}">
     <span class="status-dot"></span>
     <span>${active ? labelActive : labelOff}</span>
@@ -48,7 +49,7 @@ export function pageHeader(opts: { title: string; subtitle?: string; action?: Ra
   </div>`;
 }
 
-// ── Section header (à l'intérieur d'une card) ────────────────────
+// ── Section header (inside a card) ───────────────────────────────
 export function sectionHeader(label: string, sub?: string): Raw {
   return html`<div class="section-header">
     <h2>${label}</h2>

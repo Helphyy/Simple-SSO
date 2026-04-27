@@ -5,12 +5,13 @@ import { Sessions } from '../models/sessions.js';
 import { Access } from '../models/access.js';
 import { unsign } from '../lib/signed_cookie.js';
 import { SESSION_COOKIE } from '../middleware/session.js';
+import { t, isLang, runWithLang, DEFAULT_LANG, LANG_COOKIE, type Lang } from '../lib/i18n.js';
 
 /**
- * Handler raw Node (pas Hono) pour les routes d'interaction OIDC.
- * Raison : provider.interactionFinished() écrit directement sur le
- * ServerResponse (redirect). Si on enveloppe via Hono, Hono veut aussi
- * écrire → ERR_HTTP_HEADERS_SENT.
+ * Raw Node handler (not Hono) for OIDC interaction routes.
+ * Reason: provider.interactionFinished() writes directly to the
+ * ServerResponse (redirect). Wrapping it in Hono would make Hono
+ * also try to write, producing ERR_HTTP_HEADERS_SENT.
  */
 export async function handleInteraction(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = req.url ?? '/';
@@ -22,6 +23,15 @@ export async function handleInteraction(req: IncomingMessage, res: ServerRespons
   }
   const uid = m[1]!;
 
+  // langMiddleware does not run on this raw path; resolve manually.
+  const cookieHeaderForLang = req.headers.cookie ?? '';
+  const langRaw = getCookieValue(cookieHeaderForLang, LANG_COOKIE);
+  const lang: Lang = isLang(langRaw) ? langRaw : DEFAULT_LANG;
+
+  return runWithLang(lang, () => handleInteractionInner(req, res, uid), url);
+}
+
+async function handleInteractionInner(req: IncomingMessage, res: ServerResponse, uid: string): Promise<void> {
   try {
     const details: any = await provider.interactionDetails(req, res);
     const { prompt, params } = details;
@@ -39,7 +49,7 @@ export async function handleInteraction(req: IncomingMessage, res: ServerRespons
             await provider.interactionFinished(
               req,
               res,
-              { error: 'access_denied', error_description: `Accès refusé à ${clientId}.` },
+              { error: 'access_denied', error_description: `${t('Access denied to', 'Accès refusé à')} ${clientId}.` },
               { mergeWithLastSubmission: false }
             );
             return;
@@ -53,7 +63,7 @@ export async function handleInteraction(req: IncomingMessage, res: ServerRespons
           return;
         }
       }
-      // Pas loggé → rediriger sur notre /login (avec le client_id pour appliquer son branding)
+      // Not signed in: redirect to our /login (with client_id to apply its branding)
       const clientId = params?.client_id ? `&client=${encodeURIComponent(String(params.client_id))}` : '';
       res.statusCode = 302;
       res.setHeader('Location', `/login?next=${encodeURIComponent(`/interaction/${uid}`)}${clientId}`);

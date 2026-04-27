@@ -24,6 +24,7 @@ const BG_MIMES   = ['image/png', 'image/jpeg', 'image/webp'] as const;
 import { csrfValid } from '../lib/csrf.js';
 import { getClientIp } from '../middleware/security.js';
 import { requireAuth, requireAdmin } from '../middleware/session.js';
+import { t, translateZodMessage } from '../lib/i18n.js';
 
 export const adminRoutes = new Hono<AppEnv>();
 
@@ -84,7 +85,7 @@ adminRoutes.get('/users/new', (c) => {
 });
 
 const UserNewInput = z.object({
-  username: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'Format identifiant invalide.'),
+  username: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'INVALID_USERNAME_FORMAT'),
   email: z.string().email().or(z.literal('')).optional().default(''),
   first_name: z.string().max(100).optional().default(''),
   last_name: z.string().max(100).optional().default(''),
@@ -104,7 +105,7 @@ adminRoutes.post('/users', async (c) => {
       user: navUser(c),
       csrfToken: c.get('csrfToken') as string,
       groups: Groups.listAll(),
-      error: parsed.error.errors[0]?.message ?? 'Formulaire invalide.',
+      error: translateZodMessage(parsed.error.errors[0]?.message ?? '') || t('Invalid form.', 'Formulaire invalide.'),
       formData: body as any,
     }), 400);
   }
@@ -115,7 +116,7 @@ adminRoutes.post('/users', async (c) => {
       user: navUser(c),
       csrfToken: c.get('csrfToken') as string,
       groups: Groups.listAll(),
-      error: `L'identifiant "${input.username}" existe déjà.`,
+      error: `${t('Username', 'Identifiant')} "${input.username}" ${t('already exists.', 'existe déjà.')}`,
       formData: input as any,
     }), 400);
   }
@@ -124,7 +125,7 @@ adminRoutes.post('/users', async (c) => {
       user: navUser(c),
       csrfToken: c.get('csrfToken') as string,
       groups: Groups.listAll(),
-      error: `L'email "${input.email}" est déjà utilisé.`,
+      error: `${t('Email', 'Email')} "${input.email}" ${t('is already used.', 'est déjà utilisé.')}`,
       formData: input as any,
     }), 400);
   }
@@ -132,8 +133,8 @@ adminRoutes.post('/users', async (c) => {
   const policy = validatePassword(input.password, [input.username, input.email, input.first_name, input.last_name].filter(Boolean) as string[]);
   if (policy) {
     const msg = policy.code === 'too_short'
-      ? `Mot de passe trop court (${policy.min} min).`
-      : 'Mot de passe trop faible. ' + (policy.suggestions[0] ?? '');
+      ? `${t('Password too short', 'Mot de passe trop court')} (${policy.min} min).`
+      : t('Password too weak.', 'Mot de passe trop faible.') + ' ' + (policy.suggestions[0] ?? '');
     return html(c, userNewPage({
       user: navUser(c),
       csrfToken: c.get('csrfToken') as string,
@@ -171,8 +172,8 @@ adminRoutes.get('/users/:id', (c) => {
   const target = Users.findById(c.req.param('id'));
   if (!target) return c.notFound();
   const flashKey = c.req.query('flash');
-  const flash = flashKey === 'password_reset' ? 'Mot de passe réinitialisé.'
-              : flashKey === 'unlocked' ? 'Compte déverrouillé.'
+  const flash = flashKey === 'password_reset' ? t('Password reset.', 'Mot de passe réinitialisé.')
+              : flashKey === 'unlocked' ? t('Account unlocked.', 'Compte déverrouillé.')
               : null;
   const s = Settings.get();
   const locked = s.lockout_max_attempts > 0 &&
@@ -189,7 +190,7 @@ adminRoutes.get('/users/:id', (c) => {
 });
 
 const UserUpdateInput = z.object({
-  username: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'Format identifiant invalide.'),
+  username: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'INVALID_USERNAME_FORMAT'),
   email: z.string().email().or(z.literal('')).optional().default(''),
   first_name: z.string().max(100).optional().default(''),
   last_name: z.string().max(100).optional().default(''),
@@ -211,14 +212,14 @@ adminRoutes.post('/users/:id', async (c) => {
       target,
       allGroups: Groups.listAll(),
       memberGroupIds: new Set(Groups.groupsOf(target.id).map((g) => g.id)),
-      error: parsed.error.errors[0]?.message ?? 'Formulaire invalide.',
+      error: translateZodMessage(parsed.error.errors[0]?.message ?? '') || t('Invalid form.', 'Formulaire invalide.'),
     }), 400);
   }
   const input = parsed.data;
   const enabledBefore = !!target.enabled;
   const enabledNow = input.enabled === '1';
 
-  // Empêcher de dégrader son propre compte admin / se désactiver soi-même
+  // Prevent demoting or disabling one's own admin account
   const self = c.get('user') as any;
   if (self.id === target.id && (input.role !== 'admin' || !enabledNow)) {
     return html(c, userEditPage({
@@ -227,7 +228,7 @@ adminRoutes.post('/users/:id', async (c) => {
       target,
       allGroups: Groups.listAll(),
       memberGroupIds: new Set(Groups.groupsOf(target.id).map((g) => g.id)),
-      error: "Tu ne peux pas rétrograder ou désactiver ton propre compte admin.",
+      error: t("You cannot demote or disable your own admin account.", "Tu ne peux pas rétrograder ou désactiver ton propre compte admin."),
     }), 400);
   }
 
@@ -240,7 +241,7 @@ adminRoutes.post('/users/:id', async (c) => {
         target,
         allGroups: Groups.listAll(),
         memberGroupIds: new Set(Groups.groupsOf(target.id).map((g) => g.id)),
-        error: `L'identifiant "${input.username}" est déjà pris.`,
+        error: `${t('Username', 'Identifiant')} "${input.username}" ${t('is already taken.', 'est déjà pris.')}`,
       }), 400);
     }
   }
@@ -253,7 +254,7 @@ adminRoutes.post('/users/:id', async (c) => {
         target,
         allGroups: Groups.listAll(),
         memberGroupIds: new Set(Groups.groupsOf(target.id).map((g) => g.id)),
-        error: `L'email "${input.email}" est déjà utilisé.`,
+        error: `${t('Email', 'Email')} "${input.email}" ${t('is already used.', 'est déjà utilisé.')}`,
       }), 400);
     }
   }
@@ -297,8 +298,8 @@ adminRoutes.post('/users/:id/password', async (c) => {
   const policy = validatePassword(pw, [target.username, target.email, target.first_name, target.last_name].filter(Boolean) as string[]);
   if (policy) {
     const msg = policy.code === 'too_short'
-      ? `Mot de passe trop court (${policy.min} min).`
-      : 'Mot de passe trop faible.';
+      ? `${t('Password too short', 'Mot de passe trop court')} (${policy.min} min).`
+      : t('Password too weak.', 'Mot de passe trop faible.');
     return html(c, userEditPage({
       user: navUser(c),
       csrfToken: c.get('csrfToken') as string,
@@ -358,7 +359,7 @@ adminRoutes.post('/users/:id/delete', async (c) => {
   const target = Users.findById(c.req.param('id'));
   if (!target) return c.notFound();
   const self = c.get('user') as any;
-  if (self.id === target.id) return c.text('Impossible de se supprimer soi-même.', 400);
+  if (self.id === target.id) return c.text(t('Cannot delete your own account.', 'Impossible de se supprimer soi-même.'), 400);
   const body = await parseBodyCsrf(c);
   if (!body) return c.text('CSRF invalid', 403);
 
@@ -384,7 +385,7 @@ adminRoutes.get('/groups', (c) => {
 });
 
 const GroupNewInput = z.object({
-  name: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'Nom de groupe invalide.'),
+  name: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'INVALID_GROUP_NAME'),
   description: z.string().max(500).optional().default(''),
 });
 
@@ -398,7 +399,7 @@ adminRoutes.post('/groups', async (c) => {
       user: navUser(c),
       csrfToken: c.get('csrfToken') as string,
       groups,
-      error: parsed.error.errors[0]?.message ?? 'Invalide.',
+      error: translateZodMessage(parsed.error.errors[0]?.message ?? '') || t('Invalid.', 'Invalide.'),
     }), 400);
   }
   if (Groups.findByName(parsed.data.name)) {
@@ -407,7 +408,7 @@ adminRoutes.post('/groups', async (c) => {
       user: navUser(c),
       csrfToken: c.get('csrfToken') as string,
       groups,
-      error: `Le groupe "${parsed.data.name}" existe déjà.`,
+      error: `${t('Group', 'Le groupe')} "${parsed.data.name}" ${t('already exists.', 'existe déjà.')}`,
     }), 400);
   }
   const g = Groups.create(parsed.data);
@@ -454,7 +455,7 @@ adminRoutes.get('/clients/new', (c) => {
 });
 
 const ClientNewInput = z.object({
-  id: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'Client ID invalide.'),
+  id: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'INVALID_CLIENT_ID'),
   name: z.string().min(1).max(200),
   redirect_uris: z.string().min(1),
   post_logout_uris: z.string().optional().default(''),
@@ -469,7 +470,7 @@ adminRoutes.post('/clients', async (c) => {
     return html(c, clientNewPage({
       user: navUser(c),
       csrfToken: c.get('csrfToken') as string,
-      error: parsed.error.errors[0]?.message ?? 'Invalide.',
+      error: translateZodMessage(parsed.error.errors[0]?.message ?? '') || t('Invalid.', 'Invalide.'),
       formData: body as any,
     }), 400);
   }
@@ -478,7 +479,7 @@ adminRoutes.post('/clients', async (c) => {
     return html(c, clientNewPage({
       user: navUser(c),
       csrfToken: c.get('csrfToken') as string,
-      error: `Le client ID "${parsed.data.id}" existe déjà.`,
+      error: `${t('Client ID', 'Le client ID')} "${parsed.data.id}" ${t('already exists.', 'existe déjà.')}`,
       formData: body as any,
     }), 400);
   }
@@ -486,13 +487,13 @@ adminRoutes.post('/clients', async (c) => {
   const redirectUris = parsed.data.redirect_uris.split('\n').map((s) => s.trim()).filter(Boolean);
   const logoutUris = parsed.data.post_logout_uris.split('\n').map((s) => s.trim()).filter(Boolean);
 
-  // Validation URLs
+  // URL validation
   for (const u of [...redirectUris, ...logoutUris]) {
     try { new URL(u); } catch {
       return html(c, clientNewPage({
         user: navUser(c),
         csrfToken: c.get('csrfToken') as string,
-        error: `URL invalide : ${u}`,
+        error: `${t('Invalid URL:', 'URL invalide :')} ${u}`,
         formData: body as any,
       }), 400);
     }
@@ -512,7 +513,7 @@ adminRoutes.post('/clients', async (c) => {
     ip: getClientIp(c),
   });
 
-  // Page dédiée avec bouton "Retour aux applications"
+  // Dedicated page with "Back to applications" button
   return html(c, clientSecretPage({
     user: navUser(c),
     csrfToken: c.get('csrfToken') as string,
@@ -524,7 +525,7 @@ adminRoutes.post('/clients', async (c) => {
 adminRoutes.get('/clients/:id/access', (c) => {
   const client = Clients.findById(c.req.param('id'));
   if (!client) return c.notFound();
-  const flash = c.req.query('flash') === 'saved' ? 'Accès enregistrés.' : null;
+  const flash = c.req.query('flash') === 'saved' ? t('Access saved.', 'Accès enregistrés.') : null;
   const principals = Access.list(client.id);
   return html(c, clientAccessPage({
     user: navUser(c),
@@ -546,14 +547,14 @@ adminRoutes.post('/clients/:id/access', async (c) => {
 
   const homeUrl = typeof body.home_url === 'string' && body.home_url.trim() ? body.home_url.trim().slice(0, 500) : null;
   if (homeUrl) {
-    try { new URL(homeUrl); } catch { return c.text('URL invalide', 400); }
+    try { new URL(homeUrl); } catch { return c.text(t('Invalid URL', 'URL invalide'), 400); }
   }
   Clients.setHomeUrl(client.id, homeUrl);
 
   const rawUserIds = Array.isArray(body.users) ? body.users : (body.users ? [body.users] : []);
   const rawGroupIds = Array.isArray(body.groups) ? body.groups : (body.groups ? [body.groups] : []);
 
-  // Valider que chaque principal_id existe avant insertion (anti-orphelin)
+  // Validate that each principal_id exists before insertion (avoid orphans)
   const principals: Array<{ type: 'user' | 'group'; id: string }> = [];
   const skipped: { users: string[]; groups: string[] } = { users: [], groups: [] };
   for (const id of rawUserIds.map((x: any) => String(x))) {
@@ -581,12 +582,12 @@ adminRoutes.post('/clients/:id/access', async (c) => {
   return c.redirect(`/admin/clients/${client.id}/access?flash=saved`);
 });
 
-// Per-client branding (apparence par application)
+// Per-client branding (per-app appearance)
 adminRoutes.get('/clients/:id/branding', (c) => {
   const client = Clients.findById(c.req.param('id'));
   if (!client) return c.notFound();
   const flashRaw = c.req.query('flash') ?? '';
-  const flash = flashRaw === 'saved' ? 'Apparence enregistrée.' : null;
+  const flash = flashRaw === 'saved' ? t('Appearance saved.', 'Apparence enregistrée.') : null;
   const error = flashRaw.startsWith('error:') ? decodeURIComponent(flashRaw.slice('error:'.length)) : null;
   return html(c, clientBrandingPage({
     user: navUser(c),
@@ -635,7 +636,7 @@ adminRoutes.post('/clients/:id/branding', async (c) => {
   } else {
     const r = await parseImageUpload(body.background, { allowedMimes: BG_MIMES });
     if (r.status === 'ok') patch.background_data_url = r.dataUrl;
-    else { const e = uploadErrorMessage(r, 'Image de fond'); if (e) uploadErrors.push(e); }
+    else { const e = uploadErrorMessage(r, t('Background image', 'Image de fond')); if (e) uploadErrors.push(e); }
   }
 
   Brand.updateClient(client.id, patch);
@@ -668,7 +669,7 @@ adminRoutes.post('/clients/:id/delete', async (c) => {
 // ── Branding ──────────────────────────────────────────────────────
 adminRoutes.get('/branding', (c) => {
   const flashRaw = c.req.query('flash') ?? '';
-  const flash = flashRaw === 'saved' ? 'Apparence enregistrée.' : null;
+  const flash = flashRaw === 'saved' ? t('Appearance saved.', 'Apparence enregistrée.') : null;
   const error = flashRaw.startsWith('error:') ? decodeURIComponent(flashRaw.slice('error:'.length)) : null;
   return html(c, brandingPage({
     user: navUser(c),
@@ -717,7 +718,7 @@ adminRoutes.post('/branding', async (c) => {
   } else {
     const r = await parseImageUpload(body.background, { allowedMimes: BG_MIMES });
     if (r.status === 'ok') patch.background_data_url = r.dataUrl;
-    else { const e = uploadErrorMessage(r, 'Image de fond'); if (e) uploadErrors.push(e); }
+    else { const e = uploadErrorMessage(r, t('Background image', 'Image de fond')); if (e) uploadErrors.push(e); }
   }
 
   Brand.update(patch);
@@ -732,7 +733,7 @@ adminRoutes.post('/branding', async (c) => {
 
 // ── Settings ──────────────────────────────────────────────────────
 adminRoutes.get('/settings', (c) => {
-  const flash = c.req.query('flash') === 'saved' ? 'Paramètres enregistrés.' : null;
+  const flash = c.req.query('flash') === 'saved' ? t('Settings saved.', 'Paramètres enregistrés.') : null;
   return html(c, settingsPage({
     user: navUser(c),
     csrfToken: c.get('csrfToken') as string,

@@ -89,7 +89,7 @@ FORCE_HTTPS=true
 
 In the OIDC client (admin UI): update Redirect URIs and Post Logout with the public URLs.
 
-`AUTH_PUBLIC_URL` over `https://` automatically enables `Secure` on session cookies. In production, put a reverse proxy (Caddy/Traefik) in front and remove the exposed `ports:` from the compose file.
+`AUTH_PUBLIC_URL` over `https://` automatically enables `Secure` on session cookies. In production, put a reverse proxy (Caddy/Traefik) in front.
 
 ---
 
@@ -129,3 +129,7 @@ Volumes to back up:
 ```bash
 docker exec getouline-auth-1 sh -c 'cp /app/data/auth.db /app/data/auth.db.bak'
 ```
+
+## License
+
+This project is licensed under the **GNU General Public License v3.0** (GPLv3). See the [LICENSE](LICENSE) file for the full text.

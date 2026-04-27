@@ -1,5 +1,17 @@
 import { html, raw, type Raw } from '../lib/html.js';
 import { Brand, RADIUS_MAP } from '../models/branding.js';
+import { getLang, getRequestPath, t } from '../lib/i18n.js';
+
+function langSelector(): Raw {
+  const cur = getLang();
+  const next = getRequestPath();
+  return html`<form method="POST" action="/language" class="lang-switch" title="${t('Language', 'Langue')}" aria-label="${t('Language', 'Langue')}">
+    <input type="hidden" name="next" value="${next}"/>
+    <button type="submit" name="lang" value="en" class="lang-btn${cur === 'en' ? ' is-active' : ''}" aria-label="English">EN</button>
+    <span class="lang-sep" aria-hidden="true">/</span>
+    <button type="submit" name="lang" value="fr" class="lang-btn${cur === 'fr' ? ' is-active' : ''}" aria-label="Français">FR</button>
+  </form>`;
+}
 
 export interface LayoutOpts {
   title: string;
@@ -13,24 +25,24 @@ export interface LayoutOpts {
   activeSection?: 'home' | 'profile' | 'admin' | 'users' | 'groups' | 'clients' | 'branding' | 'settings' | 'audit' | null;
 }
 
-const themeToggle = raw(`
-  <button type="button" data-theme-toggle class="tbtn" aria-label="Basculer le thème" title="Thème">
+function themeToggle(): Raw {
+  return html`<button type="button" data-theme-toggle class="tbtn" aria-label="${t('Toggle theme', 'Basculer le thème')}" title="${t('Theme', 'Thème')}">
     <svg class="i-sun" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="3.5"/><path d="M10 2.5v1.5M10 16v1.5M2.5 10h1.5M16 10h1.5M4.5 4.5l1 1M14.5 14.5l1 1M4.5 15.5l1-1M14.5 5.5l1-1"/></svg>
     <svg class="i-moon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 12.5A7 7 0 017.5 3a.5.5 0 00-.7-.5A8 8 0 1017.5 13.2a.5.5 0 00-.5-.7z"/></svg>
-  </button>
-`);
+  </button>`;
+}
 
 export function layout(opts: LayoutOpts): Raw {
   const b = Brand.get(opts.clientId ?? null);
   const useShell = !opts.hideNav && !!opts.user;
-  const floatingToggle = opts.hideNav ? html`<div class="floating-toggle">${themeToggle}</div>` : raw('');
+  const floatingToggle = opts.hideNav ? html`<div class="floating-toggle">${langSelector()}${themeToggle()}</div>` : raw('');
   const radius = RADIUS_MAP[b.radius] ?? RADIUS_MAP.sm;
   const initialTheme = b.default_theme === 'system' ? '' : b.default_theme;
   const bgOpacity = Math.max(0, Math.min(100, b.background_opacity)) / 100;
   const showBg = opts.hideNav && b.background_data_url;
 
   return html`<!doctype html>
-<html lang="fr"${initialTheme ? raw(` data-theme="${initialTheme}"`) : raw('')} data-default-theme="${b.default_theme}">
+<html lang="${getLang()}"${initialTheme ? raw(` data-theme="${initialTheme}"`) : raw('')} data-default-theme="${b.default_theme}">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -311,7 +323,19 @@ export function layout(opts: LayoutOpts): Raw {
     [data-theme="light"] .tbtn .i-sun { display: none; }
     [data-theme="light"] .tbtn .i-moon { display: block; }
 
-    .floating-toggle { position: fixed; top: 16px; right: 16px; z-index: 20; }
+    .floating-toggle { position: fixed; top: 16px; right: 16px; z-index: 20; display: inline-flex; align-items: center; gap: 6px; }
+
+    /* ── Language switch ────────────────────────────────── */
+    .lang-switch { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; line-height: 1; }
+    .lang-switch .lang-btn {
+      padding: 4px 6px; border: 0; background: transparent;
+      color: var(--text-faint); cursor: pointer; border-radius: 4px;
+      font: 500 11px/1 var(--font-sans); letter-spacing: 0.05em;
+    }
+    .lang-switch .lang-btn:hover { color: var(--text-muted); background: var(--hover); }
+    .lang-switch .lang-btn.is-active { color: var(--text); }
+    .lang-switch .lang-sep { color: var(--text-faint); user-select: none; }
+    .sidebar-tools { display: inline-flex; align-items: center; gap: 6px; }
 
     /* ── Logo mark ──────────────────────────────────────── */
     .logo-mark {
@@ -1419,7 +1443,7 @@ function renderShell(opts: LayoutOpts): Raw {
   return html`
     <div class="shell">
       <aside class="sidebar">
-        <a href="/hub" class="sidebar-brand" title="Accueil">
+        <a href="/hub" class="sidebar-brand" title="${t('Home', 'Accueil')}">
           ${b.logo_data_url
             ? html`<img src="${b.logo_data_url}" alt="" class="logo-mark" style="object-fit: cover; background: transparent;"/>`
             : html`<span class="logo-mark">${initial(b.app_name)}</span>`}
@@ -1427,24 +1451,24 @@ function renderShell(opts: LayoutOpts): Raw {
         </a>
 
         <nav class="sidebar-nav">
-          <div class="sidebar-section">Personnel</div>
-          ${navItem('/hub',     'Accueil', icons.home,    'home',    opts.activeSection ?? null)}
-          ${navItem('/account', 'Profil',  icons.profile, 'profile', opts.activeSection ?? null)}
+          <div class="sidebar-section">${t('Personal', 'Personnel')}</div>
+          ${navItem('/hub',     t('Home', 'Accueil'), icons.home,    'home',    opts.activeSection ?? null)}
+          ${navItem('/account', t('Profile', 'Profil'),  icons.profile, 'profile', opts.activeSection ?? null)}
           ${isAdmin ? html`
-            <div class="sidebar-section">Administration</div>
-            ${navItem('/admin', 'Tableau de bord', icons.shield, 'admin', opts.activeSection ?? null)}
+            <div class="sidebar-section">${t('Administration', 'Administration')}</div>
+            ${navItem('/admin', t('Dashboard', 'Tableau de bord'), icons.shield, 'admin', opts.activeSection ?? null)}
 
-            <div class="sidebar-section">Comptes</div>
-            ${navItem('/admin/users',  'Utilisateurs', icons.users,  'users',  opts.activeSection ?? null)}
-            ${navItem('/admin/groups', 'Groupes',      icons.groups, 'groups', opts.activeSection ?? null)}
+            <div class="sidebar-section">${t('Accounts', 'Comptes')}</div>
+            ${navItem('/admin/users',  t('Users', 'Utilisateurs'), icons.users,  'users',  opts.activeSection ?? null)}
+            ${navItem('/admin/groups', t('Groups', 'Groupes'),      icons.groups, 'groups', opts.activeSection ?? null)}
 
-            <div class="sidebar-section">Applications</div>
-            ${navItem('/admin/clients', 'Applications OIDC', icons.clients, 'clients', opts.activeSection ?? null)}
+            <div class="sidebar-section">${t('Applications', 'Applications')}</div>
+            ${navItem('/admin/clients', t('OIDC applications', 'Applications OIDC'), icons.clients, 'clients', opts.activeSection ?? null)}
 
-            <div class="sidebar-section">Configuration</div>
-            ${navItem('/admin/settings', 'Paramètres', icons.settings, 'settings', opts.activeSection ?? null)}
-            ${navItem('/admin/branding', 'Apparence',  icons.brand,    'branding', opts.activeSection ?? null)}
-            ${navItem('/admin/audit',    'Audit',      icons.audit,    'audit',    opts.activeSection ?? null)}
+            <div class="sidebar-section">${t('Configuration', 'Configuration')}</div>
+            ${navItem('/admin/settings', t('Settings', 'Paramètres'), icons.settings, 'settings', opts.activeSection ?? null)}
+            ${navItem('/admin/branding', t('Appearance', 'Apparence'),  icons.brand,    'branding', opts.activeSection ?? null)}
+            ${navItem('/admin/audit',    t('Audit', 'Audit'),      icons.audit,    'audit',    opts.activeSection ?? null)}
           ` : ''}
         </nav>
 
@@ -1453,10 +1477,13 @@ function renderShell(opts: LayoutOpts): Raw {
             <span class="avatar">${initial(u.username)}</span>
             <span class="u-name">${u.username}</span>
           </div>
-          ${themeToggle}
+          <div class="sidebar-tools">
+            ${langSelector()}
+            ${themeToggle()}
+          </div>
           <form method="POST" action="/logout" class="inline">
             ${opts.csrfToken ? html`<input type="hidden" name="csrf" value="${opts.csrfToken}"/>` : ''}
-            <button type="submit" class="tbtn" aria-label="Déconnexion" title="Déconnexion">
+            <button type="submit" class="tbtn" aria-label="${t('Sign out', 'Déconnexion')}" title="${t('Sign out', 'Déconnexion')}">
               <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M12 4h3a1 1 0 011 1v10a1 1 0 01-1 1h-3"/><path d="M9 7l-3 3 3 3M6 10h8"/></svg>
             </button>
           </form>

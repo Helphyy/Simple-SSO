@@ -7,6 +7,7 @@ import type { Branding, ClientBranding } from '../models/branding.js';
 import type { Principal } from '../models/access.js';
 import type { AppSettings } from '../models/settings.js';
 import type { AuditEntry } from '../models/audit.js';
+import { t } from '../lib/i18n.js';
 
 type NavUser = { username: string; role: 'admin' | 'member' };
 
@@ -110,7 +111,7 @@ const fileField = (opts: {
           <img src="${opts.preview}" alt="" style="${opts.wide ? 'width:64px;height:40px;' : 'width:40px;height:40px;'}"/>
           <label class="remove-toggle">
             <input type="checkbox" name="${opts.removeName}" value="1"/>
-            <span>Retirer l'image actuelle</span>
+            <span>${t('Remove current image', "Retirer l'image actuelle")}</span>
           </label>
         </div>` : ''}
     </div>
@@ -126,16 +127,16 @@ export function adminDashboardPage(opts: {
 }): Raw {
   const body = html`
     <div class="fade-in">
-      ${pageHeader({ title: 'Tableau de bord', subtitle: 'Vue d\'ensemble de Simple SSO.' })}
+      ${pageHeader({ title: t('Dashboard', 'Tableau de bord'), subtitle: t('Overview of Simple SSO.', "Vue d'ensemble de Simple SSO.") })}
     </div>
     ${opts.flash ? html`<div class="fade-in fade-in-1"><div class="alert alert-success">${opts.flash}</div></div>` : ''}
     <div class="stat-grid fade-in fade-in-1">
-      ${stat('Utilisateurs', opts.stats.users, '/admin/users', userIcon)}
-      ${stat('Groupes', opts.stats.groups, '/admin/groups', groupIcon)}
-      ${stat('Applications', opts.stats.clients, '/admin/clients', appIcon)}
+      ${stat(t('Users', 'Utilisateurs'), opts.stats.users, '/admin/users', userIcon)}
+      ${stat(t('Groups', 'Groupes'), opts.stats.groups, '/admin/groups', groupIcon)}
+      ${stat(t('Applications', 'Applications'), opts.stats.clients, '/admin/clients', appIcon)}
     </div>
   `;
-  return layout({ title: 'Admin', body, user: opts.user, csrfToken: opts.csrfToken, activeSection: 'admin' });
+  return layout({ title: t('Admin', 'Admin'), body, user: opts.user, csrfToken: opts.csrfToken, activeSection: 'admin' });
 }
 
 const userIcon = raw(`<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="7" r="3"/><path d="M4 17c0-3 2.7-5 6-5s6 2 6 5"/></svg>`);
@@ -172,17 +173,17 @@ export function usersListPage(opts: {
       </td>
       <td style="color: var(--text-muted)">${(u.first_name + ' ' + u.last_name).trim() || ''}</td>
       <td>
-        <span class="badge badge-${u.role === 'admin' ? 'admin' : 'member'}">${u.role === 'admin' ? 'Admin' : 'Membre'}</span>
+        <span class="badge badge-${u.role === 'admin' ? 'admin' : 'member'}">${u.role === 'admin' ? 'Admin' : t('Member', 'Membre')}</span>
       </td>
       <td style="color: var(--text-muted)">${u.groups.join(', ') || ''}</td>
       <td>
         <div class="flex items-center gap-2">
           <span class="status${u.enabled ? '' : ' status-off'}">
             <span class="status-dot"></span>
-            <span>${u.enabled ? 'Actif' : 'Désactivé'}</span>
+            <span>${u.enabled ? t('Active', 'Actif') : t('Disabled', 'Désactivé')}</span>
           </span>
-          ${u.must_change_password ? html`<span class="badge badge-warning">chg. mdp</span>` : ''}
-          ${u.locked ? html`<span class="badge badge-danger">bloqué</span>` : ''}
+          ${u.must_change_password ? html`<span class="badge badge-warning">${t('pw chg', 'chg. mdp')}</span>` : ''}
+          ${u.locked ? html`<span class="badge badge-danger">${t('locked', 'bloqué')}</span>` : ''}
         </div>
       </td>
     </tr>
@@ -191,10 +192,10 @@ export function usersListPage(opts: {
   const body = html`
     <div class="fade-in">
       ${pageHeader({
-        title: 'Utilisateurs',
-        subtitle: `${opts.users.length} compte${opts.users.length > 1 ? 's' : ''} au total.`,
+        title: t('Users', 'Utilisateurs'),
+        subtitle: `${opts.users.length} ${opts.users.length > 1 ? t('accounts in total.', 'comptes au total.') : t('account in total.', 'compte au total.')}`,
         action: html`<a href="/admin/users/new" class="btn-primary inline-flex items-center gap-1.5">
-          <span class="font-mono">+</span><span>Nouveau</span>
+          <span class="font-mono">+</span><span>${t('New', 'Nouveau')}</span>
         </a>`,
       })}
     </div>
@@ -206,19 +207,19 @@ export function usersListPage(opts: {
               <div class="empty-state-icon">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="7" r="3"/><path d="M4 17c0-3 2.7-5 6-5s6 2 6 5"/></svg>
               </div>
-              <div class="empty-state-title">Aucun utilisateur</div>
-              <a href="/admin/users/new" class="btn-primary btn-md mt-4 inline-flex items-center gap-1.5"><span class="font-mono">+</span><span>Créer un compte</span></a>
+              <div class="empty-state-title">${t('No users', 'Aucun utilisateur')}</div>
+              <a href="/admin/users/new" class="btn-primary btn-md mt-4 inline-flex items-center gap-1.5"><span class="font-mono">+</span><span>${t('Create an account', 'Créer un compte')}</span></a>
             </div>
           </div>`
         : html`<div class="card">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Identifiant</th>
-                  <th>Nom</th>
-                  <th>Rôle</th>
-                  <th>Groupes</th>
-                  <th>État</th>
+                  <th>${t('Username', 'Identifiant')}</th>
+                  <th>${t('Name', 'Nom')}</th>
+                  <th>${t('Role', 'Rôle')}</th>
+                  <th>${t('Groups', 'Groupes')}</th>
+                  <th>${t('Status', 'État')}</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
@@ -226,7 +227,7 @@ export function usersListPage(opts: {
           </div>`}
     </div>
   `;
-  return layout({ title: 'Utilisateurs', body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', width: 'wide', activeSection: 'users' });
+  return layout({ title: t('Users', 'Utilisateurs'), body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', width: 'wide', activeSection: 'users' });
 }
 
 // ── User new/edit ─────────────────────────────────────────────────
@@ -251,11 +252,11 @@ export function userNewPage(opts: {
     <div class="fade-in" style="margin-bottom: 12px;">
       <a href="/admin/users" class="btn-link">
         <svg style="width: 12px; height: 12px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4l-4 4 4 4"/></svg>
-        <span>Utilisateurs</span>
+        <span>${t('Users', 'Utilisateurs')}</span>
       </a>
     </div>
     <div class="fade-in">
-      ${pageHeader({ title: 'Nouvel utilisateur', subtitle: 'Crée un compte qui pourra se connecter aux applications autorisées.' })}
+      ${pageHeader({ title: t('New user', 'Nouvel utilisateur'), subtitle: t('Create an account that can sign in to authorized applications.', 'Crée un compte qui pourra se connecter aux applications autorisées.') })}
     </div>
     ${opts.error ? html`<div class="fade-in fade-in-1"><div class="alert alert-danger">${opts.error}</div></div>` : ''}
 
@@ -265,28 +266,28 @@ export function userNewPage(opts: {
           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
 
           <div class="settings-section-head">
-            <h2>Identité</h2>
-            <p class="sub">Identifiant et informations personnelles.</p>
+            <h2>${t('Identity', 'Identité')}</h2>
+            <p class="sub">${t('Username and personal information.', 'Identifiant et informations personnelles.')}</p>
           </div>
-          ${settingsRow('Identifiant', 'Lettres, chiffres, . _ -', html`<input name="username" type="text" value="${fd.username ?? ''}" required/>`, true)}
-          ${settingsRow('Email', 'Optionnel', html`<input name="email" type="email" value="${fd.email ?? ''}"/>`)}
-          ${settingsRow('Prénom', undefined, html`<input name="first_name" type="text" value="${fd.first_name ?? ''}"/>`)}
-          ${settingsRow('Nom', undefined, html`<input name="last_name" type="text" value="${fd.last_name ?? ''}"/>`)}
+          ${settingsRow(t('Username', 'Identifiant'), t('Letters, digits, . _ -', 'Lettres, chiffres, . _ -'), html`<input name="username" type="text" value="${fd.username ?? ''}" required/>`, true)}
+          ${settingsRow('Email', t('Optional', 'Optionnel'), html`<input name="email" type="email" value="${fd.email ?? ''}"/>`)}
+          ${settingsRow(t('First name', 'Prénom'), undefined, html`<input name="first_name" type="text" value="${fd.first_name ?? ''}"/>`)}
+          ${settingsRow(t('Last name', 'Nom'), undefined, html`<input name="last_name" type="text" value="${fd.last_name ?? ''}"/>`)}
 
           <div class="settings-section-head">
-            <h2>Mot de passe initial</h2>
-            <p class="sub">L'utilisateur sera invité à le changer à la première connexion.</p>
+            <h2>${t('Initial password', 'Mot de passe initial')}</h2>
+            <p class="sub">${t('The user will be prompted to change it on first sign-in.', "L'utilisateur sera invité à le changer à la première connexion.")}</p>
           </div>
-          ${settingsRow('Mot de passe', 'Min 12 caractères, force zxcvbn ≥ 3.', html`<input name="password" type="password" required minlength="12"/>`, true)}
-          ${settingsRow('Changement requis', undefined, html`<label class="check-row" style="margin: 0;"><input type="checkbox" name="must_change_password" value="1" checked/><div class="meta"><div class="name">Exiger un changement à la prochaine connexion</div></div></label>`)}
+          ${settingsRow(t('Password', 'Mot de passe'), t('Min 12 characters, zxcvbn strength 3 or above.', 'Min 12 caractères, force zxcvbn ≥ 3.'), html`<input name="password" type="password" required minlength="12"/>`, true)}
+          ${settingsRow(t('Change required', 'Changement requis'), undefined, html`<label class="check-row" style="margin: 0;"><input type="checkbox" name="must_change_password" value="1" checked/><div class="meta"><div class="name">${t('Require a change at next sign-in', 'Exiger un changement à la prochaine connexion')}</div></div></label>`)}
 
           <div class="settings-section-head">
-            <h2>Rôle et groupes</h2>
-            <p class="sub">Détermine les permissions et l'accès aux applications.</p>
+            <h2>${t('Role and groups', 'Rôle et groupes')}</h2>
+            <p class="sub">${t('Controls permissions and access to applications.', "Détermine les permissions et l'accès aux applications.")}</p>
           </div>
-          ${settingsRow('Rôle', undefined, html`
+          ${settingsRow(t('Role', 'Rôle'), undefined, html`
             <select name="role">
-              <option value="member"${fd.role === 'member' ? raw(' selected') : raw('')}>Membre</option>
+              <option value="member"${fd.role === 'member' ? raw(' selected') : raw('')}>${t('Member', 'Membre')}</option>
               <option value="admin"${fd.role === 'admin' ? raw(' selected') : raw('')}>Admin</option>
             </select>
           `, true)}
@@ -307,14 +308,14 @@ export function userNewPage(opts: {
           ` : ''}
 
           <div class="form-actions">
-            <a href="/admin/users" class="btn-ghost btn-md">Annuler</a>
-            <button type="submit" class="btn-primary btn-md">Créer</button>
+            <a href="/admin/users" class="btn-ghost btn-md">${t('Cancel', 'Annuler')}</a>
+            <button type="submit" class="btn-primary btn-md">${t('Create', 'Créer')}</button>
           </div>
         </form>
       </div>
     </div>
   `;
-  return layout({ title: 'Nouvel utilisateur', body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'users' });
+  return layout({ title: t('New user', 'Nouvel utilisateur'), body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'users' });
 }
 
 export function userEditPage(opts: {
@@ -327,7 +328,7 @@ export function userEditPage(opts: {
   error?: string | null;
   flash?: string | null;
 }): Raw {
-  const t = opts.target;
+  const tg = opts.target;
   const settingsRow = (name: string, help: string | undefined, control: Raw, isFirst = false) => html`
     <div class="settings-row${isFirst ? ' first' : ''}">
       <div class="settings-row-label">
@@ -341,13 +342,13 @@ export function userEditPage(opts: {
     <div class="fade-in" style="margin-bottom: 12px;">
       <a href="/admin/users" class="btn-link">
         <svg style="width: 12px; height: 12px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4l-4 4 4 4"/></svg>
-        <span>Utilisateurs</span>
+        <span>${t('Users', 'Utilisateurs')}</span>
       </a>
     </div>
     <div class="fade-in">
       ${pageHeader({
-        title: t.username,
-        subtitle: t.email ?? 'Sans email',
+        title: tg.username,
+        subtitle: tg.email ?? t('No email', 'Sans email'),
       })}
     </div>
 
@@ -357,10 +358,10 @@ export function userEditPage(opts: {
     ${opts.locked ? html`
       <div class="fade-in fade-in-1" style="max-width: 720px; margin-bottom: 16px;">
         <div class="alert alert-warning" style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-          <span>Ce compte est <strong>bloqué</strong> suite à des tentatives de connexion répétées.</span>
-          <form method="POST" action="/admin/users/${t.id}/unlock" class="inline">
+          <span>${t('This account is', 'Ce compte est')} <strong>${t('locked', 'bloqué')}</strong> ${t('after repeated failed sign-in attempts.', 'suite à des tentatives de connexion répétées.')}</span>
+          <form method="POST" action="/admin/users/${tg.id}/unlock" class="inline">
             <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
-            <button type="submit" class="btn-ghost btn-sm">Déverrouiller</button>
+            <button type="submit" class="btn-ghost btn-sm">${t('Unlock', 'Déverrouiller')}</button>
           </form>
         </div>
       </div>
@@ -368,38 +369,38 @@ export function userEditPage(opts: {
 
     <div class="fade-in fade-in-1 stack-4">
       <div class="card">
-        <form method="POST" action="/admin/users/${t.id}">
+        <form method="POST" action="/admin/users/${tg.id}">
           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
           <div class="settings-section-head">
-            <h2>Informations</h2>
-            <p class="sub">Identifiant, contact et activation.</p>
+            <h2>${t('Information', 'Informations')}</h2>
+            <p class="sub">${t('Username, contact and activation.', 'Identifiant, contact et activation.')}</p>
           </div>
-          ${settingsRow('Identifiant', 'Lettres, chiffres, . _ -', html`<input name="username" type="text" value="${t.username}" required/>`, true)}
-          ${settingsRow('Email', 'Optionnel', html`<input name="email" type="email" value="${t.email ?? ''}"/>`)}
-          ${settingsRow('Prénom', undefined, html`<input name="first_name" type="text" value="${t.first_name}"/>`)}
-          ${settingsRow('Nom', undefined, html`<input name="last_name" type="text" value="${t.last_name}"/>`)}
-          ${settingsRow('Rôle', undefined, html`
+          ${settingsRow(t('Username', 'Identifiant'), t('Letters, digits, . _ -', 'Lettres, chiffres, . _ -'), html`<input name="username" type="text" value="${tg.username}" required/>`, true)}
+          ${settingsRow('Email', t('Optional', 'Optionnel'), html`<input name="email" type="email" value="${tg.email ?? ''}"/>`)}
+          ${settingsRow(t('First name', 'Prénom'), undefined, html`<input name="first_name" type="text" value="${tg.first_name}"/>`)}
+          ${settingsRow(t('Last name', 'Nom'), undefined, html`<input name="last_name" type="text" value="${tg.last_name}"/>`)}
+          ${settingsRow(t('Role', 'Rôle'), undefined, html`
             <select name="role">
-              <option value="member"${t.role === 'member' ? raw(' selected') : raw('')}>Membre</option>
-              <option value="admin"${t.role === 'admin' ? raw(' selected') : raw('')}>Admin</option>
+              <option value="member"${tg.role === 'member' ? raw(' selected') : raw('')}>${t('Member', 'Membre')}</option>
+              <option value="admin"${tg.role === 'admin' ? raw(' selected') : raw('')}>Admin</option>
             </select>
           `)}
-          ${settingsRow('Compte activé', undefined, html`<label class="check-row" style="margin: 0;"><input type="checkbox" name="enabled" value="1"${t.enabled ? raw(' checked') : raw('')}/><div class="meta"><div class="name">Activer le compte</div><div class="sub">Décocher pour bloquer toutes les sessions.</div></div></label>`)}
+          ${settingsRow(t('Account enabled', 'Compte activé'), undefined, html`<label class="check-row" style="margin: 0;"><input type="checkbox" name="enabled" value="1"${tg.enabled ? raw(' checked') : raw('')}/><div class="meta"><div class="name">${t('Enable the account', 'Activer le compte')}</div><div class="sub">${t('Uncheck to invalidate all sessions.', 'Décocher pour bloquer toutes les sessions.')}</div></div></label>`)}
           <div class="form-actions">
-            <button type="submit" class="btn-primary btn-md">Enregistrer</button>
+            <button type="submit" class="btn-primary btn-md">${t('Save', 'Enregistrer')}</button>
           </div>
         </form>
       </div>
 
       <div class="card">
-        <form method="POST" action="/admin/users/${t.id}/groups">
+        <form method="POST" action="/admin/users/${tg.id}/groups">
           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
           <div class="settings-section-head">
-            <h2>Groupes</h2>
-            <p class="sub">Ajustement des appartenances aux groupes.</p>
+            <h2>${t('Groups', 'Groupes')}</h2>
+            <p class="sub">${t('Adjust group memberships.', 'Ajustement des appartenances aux groupes.')}</p>
           </div>
           ${opts.allGroups.length === 0
-            ? html`<div style="padding: 0 24px 20px;"><p class="help-text">Aucun groupe. <a href="/admin/groups" style="color: var(--text); text-decoration: underline;">En créer un →</a></p></div>`
+            ? html`<div style="padding: 0 24px 20px;"><p class="help-text">${t('No groups.', 'Aucun groupe.')} <a href="/admin/groups" style="color: var(--text); text-decoration: underline;">${t('Create one →', 'En créer un →')}</a></p></div>`
             : html`<div style="padding: 0 24px 20px;">
                 <div class="stack-1" style="gap: 2px;">
                   ${opts.allGroups.map((g) => html`
@@ -415,41 +416,41 @@ export function userEditPage(opts: {
               </div>`}
           ${opts.allGroups.length ? html`
             <div class="form-actions">
-              <button type="submit" class="btn-primary btn-md">Mettre à jour</button>
+              <button type="submit" class="btn-primary btn-md">${t('Update', 'Mettre à jour')}</button>
             </div>
           ` : ''}
         </form>
       </div>
 
       <div class="card">
-        <form method="POST" action="/admin/users/${t.id}/password">
+        <form method="POST" action="/admin/users/${tg.id}/password">
           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
           <div class="settings-section-head">
-            <h2>Réinitialiser le mot de passe</h2>
-            <p class="sub">Toutes les sessions actives seront invalidées.</p>
+            <h2>${t('Reset password', 'Réinitialiser le mot de passe')}</h2>
+            <p class="sub">${t('All active sessions will be invalidated.', 'Toutes les sessions actives seront invalidées.')}</p>
           </div>
-          ${settingsRow('Nouveau mot de passe', 'Min 12 caractères.', html`<input name="password" type="password" required minlength="12"/>`, true)}
-          ${settingsRow('Changement requis', undefined, html`<label class="check-row" style="margin: 0;"><input type="checkbox" name="must_change_password" value="1" checked/><div class="meta"><div class="name">Exiger un changement à la prochaine connexion</div></div></label>`)}
+          ${settingsRow(t('New password', 'Nouveau mot de passe'), t('Min 12 characters.', 'Min 12 caractères.'), html`<input name="password" type="password" required minlength="12"/>`, true)}
+          ${settingsRow(t('Change required', 'Changement requis'), undefined, html`<label class="check-row" style="margin: 0;"><input type="checkbox" name="must_change_password" value="1" checked/><div class="meta"><div class="name">${t('Require a change at next sign-in', 'Exiger un changement à la prochaine connexion')}</div></div></label>`)}
           <div class="form-actions">
-            <button type="submit" class="btn-primary btn-md">Réinitialiser</button>
+            <button type="submit" class="btn-primary btn-md">${t('Reset', 'Réinitialiser')}</button>
           </div>
         </form>
       </div>
 
       <div class="card card-danger">
         <div class="danger-section">
-          <h2>Supprimer le compte</h2>
-          <p>Cette action est irréversible. Toutes les sessions, accès et appartenances aux groupes sont révoqués.</p>
-          <form method="POST" action="/admin/users/${t.id}/delete" class="inline"
-                onsubmit="return confirm('Supprimer définitivement ${escapeAttr(t.username)} ?');">
+          <h2>${t('Delete account', 'Supprimer le compte')}</h2>
+          <p>${t('This action is irreversible. All sessions, access and group memberships are revoked.', 'Cette action est irréversible. Toutes les sessions, accès et appartenances aux groupes sont révoqués.')}</p>
+          <form method="POST" action="/admin/users/${tg.id}/delete" class="inline"
+                onsubmit="return confirm('${t('Permanently delete', 'Supprimer définitivement')} ${escapeAttr(tg.username)} ?');">
             <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
-            <button type="submit" class="btn-danger btn-md">Supprimer définitivement</button>
+            <button type="submit" class="btn-danger btn-md">${t('Delete permanently', 'Supprimer définitivement')}</button>
           </form>
         </div>
       </div>
     </div>
   `;
-  return layout({ title: t.username, body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'users' });
+  return layout({ title: tg.username, body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'users' });
 }
 
 // ── Groups ────────────────────────────────────────────────────────
@@ -462,7 +463,7 @@ export function groupsListPage(opts: {
 }): Raw {
   const body = html`
     <div class="fade-in">
-      ${pageHeader({ title: 'Groupes', subtitle: 'Regroupe des utilisateurs pour gérer l\'accès aux applications.' })}
+      ${pageHeader({ title: t('Groups', 'Groupes'), subtitle: t('Group users together to manage access to applications.', "Regroupe des utilisateurs pour gérer l'accès aux applications.") })}
     </div>
     ${opts.flash ? html`<div class="fade-in fade-in-1"><div class="alert alert-success">${opts.flash}</div></div>` : ''}
     ${opts.error ? html`<div class="fade-in fade-in-1"><div class="alert alert-danger">${opts.error}</div></div>` : ''}
@@ -472,13 +473,13 @@ export function groupsListPage(opts: {
           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
 
           <div class="settings-section-head">
-            <h2>Nouveau groupe</h2>
-            <p class="sub">Les groupes regroupent des utilisateurs pour leur accorder un accès collectif.</p>
+            <h2>${t('New group', 'Nouveau groupe')}</h2>
+            <p class="sub">${t('Groups bundle users together to grant collective access.', 'Les groupes regroupent des utilisateurs pour leur accorder un accès collectif.')}</p>
           </div>
           <div class="settings-row first">
             <div class="settings-row-label">
-              <div class="settings-row-name">Nom</div>
-              <div class="settings-row-help">Lettres, chiffres, . _ -</div>
+              <div class="settings-row-name">${t('Name', 'Nom')}</div>
+              <div class="settings-row-help">${t('Letters, digits, . _ -', 'Lettres, chiffres, . _ -')}</div>
             </div>
             <div class="settings-row-control">
               <input name="name" type="text" required placeholder="wiki-users"/>
@@ -486,7 +487,7 @@ export function groupsListPage(opts: {
           </div>
           <div class="settings-row">
             <div class="settings-row-label">
-              <div class="settings-row-name">Description</div>
+              <div class="settings-row-name">${t('Description', 'Description')}</div>
             </div>
             <div class="settings-row-control">
               <input name="description" type="text"/>
@@ -494,7 +495,7 @@ export function groupsListPage(opts: {
           </div>
 
           <div class="form-actions">
-            <button type="submit" class="btn-primary btn-md">Créer</button>
+            <button type="submit" class="btn-primary btn-md">${t('Create', 'Créer')}</button>
           </div>
         </form>
       </div>
@@ -505,17 +506,17 @@ export function groupsListPage(opts: {
               <div class="empty-state-icon">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="8" r="2.5"/><circle cx="14" cy="8" r="2.5"/><path d="M2 16c0-2.3 2-4 5-4s5 1.7 5 4M10 16c0-2.3 2-4 4.5-4S18 13.7 18 16"/></svg>
               </div>
-              <div class="empty-state-title">Aucun groupe</div>
-              <p class="empty-state-body">Utilise le formulaire ci-dessus pour créer le premier.</p>
+              <div class="empty-state-title">${t('No groups', 'Aucun groupe')}</div>
+              <p class="empty-state-body">${t('Use the form above to create the first one.', 'Utilise le formulaire ci-dessus pour créer le premier.')}</p>
             </div>
           </div>`
         : html`<div class="card">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Groupe</th>
-                  <th>Membres</th>
-                  <th>Actions</th>
+                  <th>${t('Group', 'Groupe')}</th>
+                  <th>${t('Members', 'Membres')}</th>
+                  <th>${t('Actions', 'Actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -531,9 +532,9 @@ export function groupsListPage(opts: {
                     <td>
                       <div class="row-actions">
                         <form method="POST" action="/admin/groups/${g.id}/delete" class="inline"
-                              onsubmit="return confirm('Supprimer le groupe ${escapeAttr(g.name)} ?');">
+                              onsubmit="return confirm('${t('Delete group', 'Supprimer le groupe')} ${escapeAttr(g.name)} ?');">
                           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
-                          <button type="submit" class="btn-ghost btn-ghost-danger btn-sm">Supprimer</button>
+                          <button type="submit" class="btn-ghost btn-ghost-danger btn-sm">${t('Delete', 'Supprimer')}</button>
                         </form>
                       </div>
                     </td>
@@ -544,7 +545,7 @@ export function groupsListPage(opts: {
           </div>`}
     </div>
   `;
-  return layout({ title: 'Groupes', body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', width: 'wide', activeSection: 'groups' });
+  return layout({ title: t('Groups', 'Groupes'), body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', width: 'wide', activeSection: 'groups' });
 }
 
 // ── Client secret display (after creation) ────────────────────────
@@ -558,19 +559,19 @@ export function clientSecretPage(opts: {
     <div class="fade-in" style="margin-bottom: 12px;">
       <a href="/admin/clients" class="btn-link">
         <svg style="width: 12px; height: 12px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4l-4 4 4 4"/></svg>
-        <span>Applications</span>
+        <span>${t('Applications', 'Applications')}</span>
       </a>
     </div>
     <div class="fade-in">
       ${pageHeader({
-        title: 'Application créée',
-        subtitle: 'Copie le client secret immédiatement, il ne sera plus jamais affiché.',
+        title: t('Application created', 'Application créée'),
+        subtitle: t('Copy the client secret immediately, it will never be shown again.', 'Copie le client secret immédiatement, il ne sera plus jamais affiché.'),
       })}
     </div>
 
     <div class="fade-in fade-in-1" class="form-wrap">
       <div class="alert alert-warning" style="margin-bottom: 16px;">
-        <strong>Le secret est affiché une seule fois.</strong> Stocke-le dans un gestionnaire de mots de passe ou dans la configuration de l'application avant de quitter cette page.
+        <strong>${t('The secret is shown only once.', 'Le secret est affiché une seule fois.')}</strong> ${t('Store it in a password manager or in the application configuration before leaving this page.', "Stocke-le dans un gestionnaire de mots de passe ou dans la configuration de l'application avant de quitter cette page.")}
       </div>
       <div class="card">
         <div class="form-section">
@@ -586,13 +587,13 @@ export function clientSecretPage(opts: {
           </div>
         </div>
         <div class="form-actions">
-          <a href="/admin/clients/${opts.id}/access" class="btn-ghost btn-md">Configurer l'accès</a>
-          <a href="/admin/clients" class="btn-primary btn-md">Retour aux applications</a>
+          <a href="/admin/clients/${opts.id}/access" class="btn-ghost btn-md">${t('Configure access', "Configurer l'accès")}</a>
+          <a href="/admin/clients" class="btn-primary btn-md">${t('Back to applications', 'Retour aux applications')}</a>
         </div>
       </div>
     </div>
   `;
-  return layout({ title: 'Application créée', body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'clients' });
+  return layout({ title: t('Application created', 'Application créée'), body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'clients' });
 }
 
 // ── Clients (OIDC apps) ───────────────────────────────────────────
@@ -605,10 +606,10 @@ export function clientsListPage(opts: {
   const body = html`
     <div class="fade-in">
       ${pageHeader({
-        title: 'Applications',
-        subtitle: 'Clients OIDC autorisés à se connecter via Simple SSO.',
+        title: t('Applications', 'Applications'),
+        subtitle: t('OIDC clients allowed to sign in via Simple SSO.', 'Clients OIDC autorisés à se connecter via Simple SSO.'),
         action: html`<a href="/admin/clients/new" class="btn-primary inline-flex items-center gap-1.5">
-          <span class="font-mono">+</span><span>Nouvelle</span>
+          <span class="font-mono">+</span><span>${t('New', 'Nouvelle')}</span>
         </a>`,
       })}
     </div>
@@ -620,18 +621,18 @@ export function clientsListPage(opts: {
               <div class="empty-state-icon">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="3" width="6" height="6" rx="1.3"/><rect x="11" y="3" width="6" height="6" rx="1.3"/><rect x="3" y="11" width="6" height="6" rx="1.3"/><rect x="11" y="11" width="6" height="6" rx="1.3"/></svg>
               </div>
-              <div class="empty-state-title">Aucune application</div>
-              <p class="empty-state-body">Déclare une application OIDC pour qu'elle puisse se connecter via Simple SSO.</p>
-              <a href="/admin/clients/new" class="btn-primary btn-md mt-4 inline-flex items-center gap-1.5"><span class="font-mono">+</span><span>Créer la première</span></a>
+              <div class="empty-state-title">${t('No applications', 'Aucune application')}</div>
+              <p class="empty-state-body">${t('Declare an OIDC application so it can sign in via Simple SSO.', "Déclare une application OIDC pour qu'elle puisse se connecter via Simple SSO.")}</p>
+              <a href="/admin/clients/new" class="btn-primary btn-md mt-4 inline-flex items-center gap-1.5"><span class="font-mono">+</span><span>${t('Create the first one', 'Créer la première')}</span></a>
             </div>
           </div>`
         : html`<div class="card">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Application</th>
+                  <th>${t('Application', 'Application')}</th>
                   <th>Redirect URI</th>
-                  <th class="text-right">Actions</th>
+                  <th class="text-right">${t('Actions', 'Actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -651,12 +652,12 @@ export function clientsListPage(opts: {
                     </td>
                     <td>
                       <div class="row-actions">
-                        <a href="/admin/clients/${c.id}/access" class="btn-ghost btn-sm">Accès</a>
-                        <a href="/admin/clients/${c.id}/branding" class="btn-ghost btn-sm">Apparence</a>
+                        <a href="/admin/clients/${c.id}/access" class="btn-ghost btn-sm">${t('Access', 'Accès')}</a>
+                        <a href="/admin/clients/${c.id}/branding" class="btn-ghost btn-sm">${t('Appearance', 'Apparence')}</a>
                         <form method="POST" action="/admin/clients/${c.id}/delete" class="inline"
-                              onsubmit="return confirm('Supprimer ${escapeAttr(c.name)} ?');">
+                              onsubmit="return confirm('${t('Delete', 'Supprimer')} ${escapeAttr(c.name)} ?');">
                           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
-                          <button type="submit" class="btn-ghost btn-ghost-danger btn-sm">Supprimer</button>
+                          <button type="submit" class="btn-ghost btn-ghost-danger btn-sm">${t('Delete', 'Supprimer')}</button>
                         </form>
                       </div>
                     </td>
@@ -667,7 +668,7 @@ export function clientsListPage(opts: {
           </div>`}
     </div>
   `;
-  return layout({ title: 'Applications', body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', width: 'wide', activeSection: 'clients' });
+  return layout({ title: t('Applications', 'Applications'), body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', width: 'wide', activeSection: 'clients' });
 }
 
 export function clientNewPage(opts: {
@@ -690,11 +691,11 @@ export function clientNewPage(opts: {
     <div class="fade-in" style="margin-bottom: 12px;">
       <a href="/admin/clients" class="btn-link">
         <svg style="width: 12px; height: 12px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4l-4 4 4 4"/></svg>
-        <span>Applications</span>
+        <span>${t('Applications', 'Applications')}</span>
       </a>
     </div>
     <div class="fade-in">
-      ${pageHeader({ title: 'Nouvelle application', subtitle: 'Déclare un client OIDC pour qu\'il puisse se connecter via Simple SSO.' })}
+      ${pageHeader({ title: t('New application', 'Nouvelle application'), subtitle: t('Declare an OIDC client so it can sign in via Simple SSO.', "Déclare un client OIDC pour qu'il puisse se connecter via Simple SSO.") })}
     </div>
     ${opts.error ? html`<div class="fade-in fade-in-1"><div class="alert alert-danger">${opts.error}</div></div>` : ''}
     <div class="fade-in fade-in-1">
@@ -703,28 +704,28 @@ export function clientNewPage(opts: {
           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
 
           <div class="settings-section-head">
-            <h2>Application</h2>
-            <p class="sub">Identifiant et nom affichés à l'utilisateur.</p>
+            <h2>${t('Application', 'Application')}</h2>
+            <p class="sub">${t('Identifier and name shown to the user.', "Identifiant et nom affichés à l'utilisateur.")}</p>
           </div>
-          ${settingsRow('Client ID', 'Identifiant technique, immutable.', html`<input name="id" type="text" value="${fd.id ?? ''}" required placeholder="outline"/>`, true)}
-          ${settingsRow('Nom affiché', undefined, html`<input name="name" type="text" value="${fd.name ?? ''}" required placeholder="Outline"/>`)}
+          ${settingsRow('Client ID', t('Technical identifier, immutable.', 'Identifiant technique, immutable.'), html`<input name="id" type="text" value="${fd.id ?? ''}" required placeholder="outline"/>`, true)}
+          ${settingsRow(t('Display name', 'Nom affiché'), undefined, html`<input name="name" type="text" value="${fd.name ?? ''}" required placeholder="Outline"/>`)}
 
           <div class="settings-section-head">
-            <h2>URLs OIDC</h2>
-            <p class="sub">URLs vers lesquelles le client peut être redirigé.</p>
+            <h2>${t('OIDC URLs', 'URLs OIDC')}</h2>
+            <p class="sub">${t('URLs the client may be redirected to.', 'URLs vers lesquelles le client peut être redirigé.')}</p>
           </div>
-          ${settingsRow('Redirect URIs', 'Une URL par ligne.', html`<textarea name="redirect_uris" required rows="3" class="font-mono" placeholder="https://docs.example.com/auth/oidc.callback&#10;http://localhost:3000/auth/oidc.callback">${fd.redirect_uris ?? ''}</textarea>`, true)}
-          ${settingsRow('Post Logout URIs', 'Optionnel.', html`<textarea name="post_logout_uris" rows="2" class="font-mono">${fd.post_logout_uris ?? ''}</textarea>`)}
+          ${settingsRow('Redirect URIs', t('One URL per line.', 'Une URL par ligne.'), html`<textarea name="redirect_uris" required rows="3" class="font-mono" placeholder="https://docs.example.com/auth/oidc.callback&#10;http://localhost:3000/auth/oidc.callback">${fd.redirect_uris ?? ''}</textarea>`, true)}
+          ${settingsRow('Post Logout URIs', t('Optional.', 'Optionnel.'), html`<textarea name="post_logout_uris" rows="2" class="font-mono">${fd.post_logout_uris ?? ''}</textarea>`)}
 
           <div class="form-actions">
-            <a href="/admin/clients" class="btn-ghost btn-md">Annuler</a>
-            <button type="submit" class="btn-primary btn-md">Créer l'application</button>
+            <a href="/admin/clients" class="btn-ghost btn-md">${t('Cancel', 'Annuler')}</a>
+            <button type="submit" class="btn-primary btn-md">${t('Create application', "Créer l'application")}</button>
           </div>
         </form>
       </div>
     </div>
   `;
-  return layout({ title: 'Nouvelle application', body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'clients' });
+  return layout({ title: t('New application', 'Nouvelle application'), body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'clients' });
 }
 
 // ── Per-client access (ACL) ───────────────────────────────────────
@@ -752,13 +753,13 @@ export function clientAccessPage(opts: {
     <div class="fade-in" style="margin-bottom: 12px;">
       <a href="/admin/clients" class="btn-link">
         <svg style="width: 12px; height: 12px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4l-4 4 4 4"/></svg>
-        <span>Applications</span>
+        <span>${t('Applications', 'Applications')}</span>
       </a>
     </div>
     <div class="fade-in">
       ${pageHeader({
-        title: `Accès ${opts.client.name}`,
-        subtitle: restricted ? 'Application restreinte aux utilisateurs et groupes sélectionnés.' : 'Aucune restriction : tout utilisateur authentifié peut accéder.',
+        title: `${t('Access', 'Accès')} ${opts.client.name}`,
+        subtitle: restricted ? t('Application restricted to selected users and groups.', 'Application restreinte aux utilisateurs et groupes sélectionnés.') : t('No restriction: any authenticated user can access.', 'Aucune restriction : tout utilisateur authentifié peut accéder.'),
       })}
     </div>
 
@@ -770,18 +771,18 @@ export function clientAccessPage(opts: {
           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
 
           <div class="settings-section-head">
-            <h2>Lien d'accès</h2>
-            <p class="sub">URL ouverte depuis le hub des utilisateurs.</p>
+            <h2>${t('Access link', "Lien d'accès")}</h2>
+            <p class="sub">${t('URL opened from the user hub.', 'URL ouverte depuis le hub des utilisateurs.')}</p>
           </div>
-          ${settingsRow('URL d\'accueil', 'Vide = déduite du redirect URI.', html`<input name="home_url" type="url" value="${opts.client.home_url ?? ''}" placeholder="https://wiki.example.com"/>`, true)}
+          ${settingsRow(t('Home URL', "URL d'accueil"), t('Empty = inferred from redirect URI.', 'Vide = déduite du redirect URI.'), html`<input name="home_url" type="url" value="${opts.client.home_url ?? ''}" placeholder="https://wiki.example.com"/>`, true)}
 
           <div class="settings-section-head">
-            <h2>Groupes autorisés</h2>
-            <p class="sub">${opts.allGroups.length === 0 ? 'Aucun groupe défini.' : 'Tous les membres de ces groupes auront accès.'}</p>
+            <h2>${t('Allowed groups', 'Groupes autorisés')}</h2>
+            <p class="sub">${opts.allGroups.length === 0 ? t('No groups defined.', 'Aucun groupe défini.') : t('All members of these groups will have access.', 'Tous les membres de ces groupes auront accès.')}</p>
           </div>
           <div style="padding: 0 24px 20px;">
             ${opts.allGroups.length === 0
-              ? html`<p class="help-text">Crée un groupe depuis <a href="/admin/groups" class="text-mono-xs" style="color: var(--text); text-decoration: underline;">Groupes</a>.</p>`
+              ? html`<p class="help-text">${t('Create a group from', 'Crée un groupe depuis')} <a href="/admin/groups" class="text-mono-xs" style="color: var(--text); text-decoration: underline;">${t('Groups', 'Groupes')}</a>.</p>`
               : html`<div class="stack-1" style="gap: 2px;">
                   ${opts.allGroups.map((g) => html`
                     <label class="check-row">
@@ -796,12 +797,12 @@ export function clientAccessPage(opts: {
           </div>
 
           <div class="settings-section-head">
-            <h2>Utilisateurs autorisés</h2>
-            <p class="sub">En plus des groupes ci-dessus.</p>
+            <h2>${t('Allowed users', 'Utilisateurs autorisés')}</h2>
+            <p class="sub">${t('In addition to the groups above.', 'En plus des groupes ci-dessus.')}</p>
           </div>
           <div style="padding: 0 24px 20px;">
             ${opts.allUsers.length === 0
-              ? html`<p class="help-text">Aucun utilisateur.</p>`
+              ? html`<p class="help-text">${t('No users.', 'Aucun utilisateur.')}</p>`
               : html`<div class="stack-1" style="gap: 2px; max-height: 320px; overflow-y: auto;">
                   ${opts.allUsers.map((u) => html`
                     <label class="check-row">
@@ -816,13 +817,13 @@ export function clientAccessPage(opts: {
           </div>
 
           <div class="form-actions">
-            <button type="submit" class="btn-primary btn-md">Enregistrer</button>
+            <button type="submit" class="btn-primary btn-md">${t('Save', 'Enregistrer')}</button>
           </div>
         </form>
       </div>
     </div>
   `;
-  return layout({ title: `Accès ${opts.client.name}`, body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'clients' });
+  return layout({ title: `${t('Access', 'Accès')} ${opts.client.name}`, body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'clients' });
 }
 
 // ── Per-client branding ───────────────────────────────────────────
@@ -853,7 +854,7 @@ export function clientBrandingPage(opts: {
           <img src="${preview}" alt="" style="${wide ? 'width:64px;height:40px;' : 'width:40px;height:40px;'}"/>
           <label class="remove-toggle">
             <input type="checkbox" name="${removeName}" value="1"/>
-            <span>Retirer l'image actuelle</span>
+            <span>${t('Remove current image', "Retirer l'image actuelle")}</span>
           </label>
         </div>` : ''}
     </div>
@@ -862,13 +863,13 @@ export function clientBrandingPage(opts: {
     <div class="fade-in" style="margin-bottom: 12px;">
       <a href="/admin/clients" class="btn-link">
         <svg style="width: 12px; height: 12px;" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4l-4 4 4 4"/></svg>
-        <span>Applications</span>
+        <span>${t('Applications', 'Applications')}</span>
       </a>
     </div>
     <div class="fade-in">
       ${pageHeader({
-        title: `Apparence ${opts.client.name}`,
-        subtitle: 'Surcharge le branding global pour cette application. Champs vides = valeurs globales.',
+        title: `${t('Appearance', 'Apparence')} ${opts.client.name}`,
+        subtitle: t('Override the global branding for this application. Empty fields = global values.', 'Surcharge le branding global pour cette application. Champs vides = valeurs globales.'),
       })}
     </div>
 
@@ -881,21 +882,21 @@ export function clientBrandingPage(opts: {
           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
 
           <div class="settings-section-head">
-            <h2>Identité</h2>
-            <p class="sub">Personnalise le nom et les couleurs pour cette app.</p>
+            <h2>${t('Identity', 'Identité')}</h2>
+            <p class="sub">${t('Customize the name and colors for this app.', 'Personnalise le nom et les couleurs pour cette app.')}</p>
           </div>
-          ${settingsRow('Nom affiché', undefined, html`<input name="app_name" type="text" value="${b.app_name ?? ''}" placeholder="(global)"/>`, true)}
-          ${settingsRow('Sous-titre', undefined, html`<input name="tagline" type="text" value="${b.tagline ?? ''}" placeholder="(global)"/>`)}
-          ${settingsRow('Couleur principale', undefined, colorCtrl('primary_color', b.primary_color ?? '#0f172a'))}
-          ${settingsRow('Couleur d\'accent', undefined, colorCtrl('accent_color', b.accent_color ?? '#2563eb'))}
-          ${settingsRow('Logo', 'PNG / SVG / JPEG, max 10 Mo. Vide = logo global.', fileCtrl('logo', 'image/png,image/svg+xml,image/jpeg', b.logo_data_url, 'remove_logo'))}
+          ${settingsRow(t('Display name', 'Nom affiché'), undefined, html`<input name="app_name" type="text" value="${b.app_name ?? ''}" placeholder="(global)"/>`, true)}
+          ${settingsRow(t('Tagline', 'Sous-titre'), undefined, html`<input name="tagline" type="text" value="${b.tagline ?? ''}" placeholder="(global)"/>`)}
+          ${settingsRow(t('Primary color', 'Couleur principale'), undefined, colorCtrl('primary_color', b.primary_color ?? '#0f172a'))}
+          ${settingsRow(t('Accent color', "Couleur d'accent"), undefined, colorCtrl('accent_color', b.accent_color ?? '#2563eb'))}
+          ${settingsRow('Logo', t('PNG / SVG / JPEG, max 10 MB. Empty = global logo.', 'PNG / SVG / JPEG, max 10 Mo. Vide = logo global.'), fileCtrl('logo', 'image/png,image/svg+xml,image/jpeg', b.logo_data_url, 'remove_logo'))}
 
           <div class="settings-section-head">
-            <h2>Arrière-plan</h2>
-            <p class="sub">Image affichée derrière le formulaire de connexion.</p>
+            <h2>${t('Background', 'Arrière-plan')}</h2>
+            <p class="sub">${t('Image shown behind the sign-in form.', 'Image affichée derrière le formulaire de connexion.')}</p>
           </div>
-          ${settingsRow('Image de fond', 'PNG / JPEG / WebP, max 10 Mo.', fileCtrl('background', 'image/png,image/jpeg,image/webp', b.background_data_url, 'remove_background', true), true)}
-          ${settingsRow(`Opacité du fond${b.background_opacity === null ? ' (global)' : ''}`, undefined, html`
+          ${settingsRow(t('Background image', 'Image de fond'), t('PNG / JPEG / WebP, max 10 MB.', 'PNG / JPEG / WebP, max 10 Mo.'), fileCtrl('background', 'image/png,image/jpeg,image/webp', b.background_data_url, 'remove_background', true), true)}
+          ${settingsRow(`${t('Background opacity', 'Opacité du fond')}${b.background_opacity === null ? ' (global)' : ''}`, undefined, html`
             <div class="range-field">
               <div class="range-head">
                 <span class="range-value">${String(b.background_opacity ?? 100)}%</span>
@@ -906,20 +907,20 @@ export function clientBrandingPage(opts: {
           `)}
 
           <div class="settings-section-head">
-            <h2>Textes</h2>
-            <p class="sub">Surcharges des textes affichés au login.</p>
+            <h2>${t('Texts', 'Textes')}</h2>
+            <p class="sub">${t('Overrides for the texts shown at login.', 'Surcharges des textes affichés au login.')}</p>
           </div>
-          ${settingsRow('Libellé du bouton de connexion', undefined, html`<input name="login_button_label" type="text" value="${b.login_button_label ?? ''}" placeholder="(global)"/>`, true)}
-          ${settingsRow('Texte de pied de page', undefined, html`<input name="footer_text" type="text" value="${b.footer_text ?? ''}" placeholder="(global)"/>`)}
+          ${settingsRow(t('Sign-in button label', 'Libellé du bouton de connexion'), undefined, html`<input name="login_button_label" type="text" value="${b.login_button_label ?? ''}" placeholder="(global)"/>`, true)}
+          ${settingsRow(t('Footer text', 'Texte de pied de page'), undefined, html`<input name="footer_text" type="text" value="${b.footer_text ?? ''}" placeholder="(global)"/>`)}
 
           <div class="form-actions">
-            <button type="submit" class="btn-primary btn-md">Enregistrer</button>
+            <button type="submit" class="btn-primary btn-md">${t('Save', 'Enregistrer')}</button>
           </div>
         </form>
       </div>
     </div>
   `;
-  return layout({ title: `Apparence ${opts.client.name}`, body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'clients' });
+  return layout({ title: `${t('Appearance', 'Apparence')} ${opts.client.name}`, body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'clients' });
 }
 
 // ── Branding ──────────────────────────────────────────────────────
@@ -949,14 +950,14 @@ export function brandingPage(opts: {
           <img src="${preview}" alt="" style="${wide ? 'width:64px;height:40px;' : 'width:40px;height:40px;'}"/>
           <label class="remove-toggle">
             <input type="checkbox" name="${removeName}" value="1"/>
-            <span>Retirer l'image actuelle</span>
+            <span>${t('Remove current image', "Retirer l'image actuelle")}</span>
           </label>
         </div>` : ''}
     </div>
   `;
   const body = html`
     <div class="fade-in">
-      ${pageHeader({ title: 'Apparence', subtitle: 'Identité visuelle globale. Chaque application peut surcharger ces valeurs.' })}
+      ${pageHeader({ title: t('Appearance', 'Apparence'), subtitle: t('Global visual identity. Each application can override these values.', 'Identité visuelle globale. Chaque application peut surcharger ces valeurs.') })}
     </div>
     ${opts.flash ? html`<div class="fade-in fade-in-1"><div class="alert alert-success">${opts.flash}</div></div>` : ''}
     ${opts.error ? html`<div class="fade-in fade-in-1"><div class="alert alert-danger">${opts.error}</div></div>` : ''}
@@ -966,41 +967,41 @@ export function brandingPage(opts: {
           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
 
           <div class="settings-section-head">
-            <h2>Identité</h2>
-            <p class="sub">Nom et sous-titre affichés sur l'écran de connexion.</p>
+            <h2>${t('Identity', 'Identité')}</h2>
+            <p class="sub">${t('Name and tagline shown on the sign-in screen.', "Nom et sous-titre affichés sur l'écran de connexion.")}</p>
           </div>
-          ${settingsRow('Nom affiché', undefined, html`<input name="app_name" type="text" value="${b.app_name}" required/>`, true)}
-          ${settingsRow('Sous-titre', undefined, html`<input name="tagline" type="text" value="${b.tagline}"/>`)}
-          ${settingsRow('Couleur principale', undefined, colorCtrl('primary_color', b.primary_color))}
-          ${settingsRow('Couleur d\'accent', undefined, colorCtrl('accent_color', b.accent_color))}
-          ${settingsRow('Logo', 'PNG / SVG / JPEG, max 10 Mo.', fileCtrl('logo', 'image/png,image/svg+xml,image/jpeg', b.logo_data_url, 'remove_logo'))}
+          ${settingsRow(t('Display name', 'Nom affiché'), undefined, html`<input name="app_name" type="text" value="${b.app_name}" required/>`, true)}
+          ${settingsRow(t('Tagline', 'Sous-titre'), undefined, html`<input name="tagline" type="text" value="${b.tagline}"/>`)}
+          ${settingsRow(t('Primary color', 'Couleur principale'), undefined, colorCtrl('primary_color', b.primary_color))}
+          ${settingsRow(t('Accent color', "Couleur d'accent"), undefined, colorCtrl('accent_color', b.accent_color))}
+          ${settingsRow('Logo', t('PNG / SVG / JPEG, max 10 MB.', 'PNG / SVG / JPEG, max 10 Mo.'), fileCtrl('logo', 'image/png,image/svg+xml,image/jpeg', b.logo_data_url, 'remove_logo'))}
 
           <div class="settings-section-head">
-            <h2>Thème</h2>
-            <p class="sub">Apparence par défaut et arrondis.</p>
+            <h2>${t('Theme', 'Thème')}</h2>
+            <p class="sub">${t('Default appearance and corner radius.', 'Apparence par défaut et arrondis.')}</p>
           </div>
-          ${settingsRow('Thème par défaut', undefined, html`
+          ${settingsRow(t('Default theme', 'Thème par défaut'), undefined, html`
             <select name="default_theme">
-              <option value="dark"${b.default_theme === 'dark' ? raw(' selected') : raw('')}>Sombre</option>
-              <option value="light"${b.default_theme === 'light' ? raw(' selected') : raw('')}>Clair</option>
-              <option value="system"${b.default_theme === 'system' ? raw(' selected') : raw('')}>Système (auto)</option>
+              <option value="dark"${b.default_theme === 'dark' ? raw(' selected') : raw('')}>${t('Dark', 'Sombre')}</option>
+              <option value="light"${b.default_theme === 'light' ? raw(' selected') : raw('')}>${t('Light', 'Clair')}</option>
+              <option value="system"${b.default_theme === 'system' ? raw(' selected') : raw('')}>${t('System (auto)', 'Système (auto)')}</option>
             </select>
           `, true)}
-          ${settingsRow('Coins', undefined, html`
+          ${settingsRow(t('Corners', 'Coins'), undefined, html`
             <select name="radius">
-              <option value="none"${b.radius === 'none' ? raw(' selected') : raw('')}>Carrés</option>
-              <option value="sm"${b.radius === 'sm' ? raw(' selected') : raw('')}>Légers</option>
-              <option value="md"${b.radius === 'md' ? raw(' selected') : raw('')}>Arrondis</option>
-              <option value="lg"${b.radius === 'lg' ? raw(' selected') : raw('')}>Très arrondis</option>
+              <option value="none"${b.radius === 'none' ? raw(' selected') : raw('')}>${t('Square', 'Carrés')}</option>
+              <option value="sm"${b.radius === 'sm' ? raw(' selected') : raw('')}>${t('Slight', 'Légers')}</option>
+              <option value="md"${b.radius === 'md' ? raw(' selected') : raw('')}>${t('Rounded', 'Arrondis')}</option>
+              <option value="lg"${b.radius === 'lg' ? raw(' selected') : raw('')}>${t('Very rounded', 'Très arrondis')}</option>
             </select>
           `)}
 
           <div class="settings-section-head">
-            <h2>Arrière-plan</h2>
-            <p class="sub">Image de fond appliquée à la page de connexion.</p>
+            <h2>${t('Background', 'Arrière-plan')}</h2>
+            <p class="sub">${t('Background image applied to the sign-in page.', 'Image de fond appliquée à la page de connexion.')}</p>
           </div>
-          ${settingsRow('Image de fond', 'PNG / JPEG / WebP, max 10 Mo.', fileCtrl('background', 'image/png,image/jpeg,image/webp', b.background_data_url, 'remove_background', true), true)}
-          ${settingsRow('Opacité du fond', undefined, html`
+          ${settingsRow(t('Background image', 'Image de fond'), t('PNG / JPEG / WebP, max 10 MB.', 'PNG / JPEG / WebP, max 10 Mo.'), fileCtrl('background', 'image/png,image/jpeg,image/webp', b.background_data_url, 'remove_background', true), true)}
+          ${settingsRow(t('Background opacity', 'Opacité du fond'), undefined, html`
             <div class="range-field">
               <div class="range-head">
                 <span class="range-value">${String(b.background_opacity)}%</span>
@@ -1011,20 +1012,20 @@ export function brandingPage(opts: {
           `)}
 
           <div class="settings-section-head">
-            <h2>Textes</h2>
-            <p class="sub">Personnalise les textes de la page de connexion.</p>
+            <h2>${t('Texts', 'Textes')}</h2>
+            <p class="sub">${t('Customize the texts of the sign-in page.', 'Personnalise les textes de la page de connexion.')}</p>
           </div>
-          ${settingsRow('Libellé du bouton de connexion', undefined, html`<input name="login_button_label" type="text" value="${b.login_button_label}"/>`, true)}
-          ${settingsRow('Texte de pied de page', 'Vide = pas de footer.', html`<input name="footer_text" type="text" value="${b.footer_text}"/>`)}
+          ${settingsRow(t('Sign-in button label', 'Libellé du bouton de connexion'), undefined, html`<input name="login_button_label" type="text" value="${b.login_button_label}"/>`, true)}
+          ${settingsRow(t('Footer text', 'Texte de pied de page'), t('Empty = no footer.', 'Vide = pas de footer.'), html`<input name="footer_text" type="text" value="${b.footer_text}"/>`)}
 
           <div class="form-actions">
-            <button type="submit" class="btn-primary btn-md">Enregistrer</button>
+            <button type="submit" class="btn-primary btn-md">${t('Save', 'Enregistrer')}</button>
           </div>
         </form>
       </div>
     </div>
   `;
-  return layout({ title: 'Apparence', body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'branding' });
+  return layout({ title: t('Appearance', 'Apparence'), body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'branding' });
 }
 
 // ── Audit ─────────────────────────────────────────────────────────
@@ -1035,7 +1036,7 @@ export function auditPage(opts: {
 }): Raw {
   const body = html`
     <div class="fade-in">
-      ${pageHeader({ title: 'Journal d\'audit', subtitle: '200 derniers événements (logins, actions admin).' })}
+      ${pageHeader({ title: t('Audit log', "Journal d'audit"), subtitle: t('Last 200 events (logins, admin actions).', '200 derniers événements (logins, actions admin).') })}
     </div>
     <div class="fade-in fade-in-2">
       ${opts.entries.length === 0
@@ -1044,18 +1045,18 @@ export function auditPage(opts: {
               <div class="empty-state-icon">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 1.5"/></svg>
               </div>
-              <div class="empty-state-title">Aucun événement</div>
-              <p class="empty-state-body">Les actions admin et logins apparaîtront ici.</p>
+              <div class="empty-state-title">${t('No events', 'Aucun événement')}</div>
+              <p class="empty-state-body">${t('Admin actions and sign-ins will appear here.', 'Les actions admin et logins apparaîtront ici.')}</p>
             </div>
           </div>`
         : html`<div class="card">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Quand</th>
-                  <th>Acteur</th>
-                  <th>Action</th>
-                  <th>Cible</th>
+                  <th>${t('When', 'Quand')}</th>
+                  <th>${t('Actor', 'Acteur')}</th>
+                  <th>${t('Action', 'Action')}</th>
+                  <th>${t('Target', 'Cible')}</th>
                   <th>IP</th>
                 </tr>
               </thead>
@@ -1074,7 +1075,7 @@ export function auditPage(opts: {
           </div>`}
     </div>
   `;
-  return layout({ title: 'Audit', body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', width: 'wide', activeSection: 'audit' });
+  return layout({ title: t('Audit', 'Audit'), body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', width: 'wide', activeSection: 'audit' });
 }
 
 // ── Settings ──────────────────────────────────────────────────────
@@ -1099,7 +1100,7 @@ export function settingsPage(opts: {
   const numCtrl = (name: string, value: number) => html`<input name="${name}" type="number" min="0" value="${String(value)}"/>`;
 
   const body = html`
-    <div class="fade-in">${pageHeader({ title: 'Paramètres', subtitle: 'Sécurité, mots de passe, sessions et comptes.' })}</div>
+    <div class="fade-in">${pageHeader({ title: t('Settings', 'Paramètres'), subtitle: t('Security, passwords, sessions and accounts.', 'Sécurité, mots de passe, sessions et comptes.') })}</div>
     ${opts.flash ? html`<div class="fade-in fade-in-1"><div class="alert alert-success">${opts.flash}</div></div>` : ''}
     <div class="fade-in fade-in-1">
       <div class="card">
@@ -1107,54 +1108,54 @@ export function settingsPage(opts: {
           <input type="hidden" name="csrf" value="${opts.csrfToken}"/>
 
           <div class="settings-section-head">
-            <h2>Sécurité</h2>
-            <p class="sub">Protection contre les attaques par force brute.</p>
+            <h2>${t('Security', 'Sécurité')}</h2>
+            <p class="sub">${t('Protection against brute-force attacks.', 'Protection contre les attaques par force brute.')}</p>
           </div>
-          ${settingsRow('Tentatives max avant blocage', '0 = jamais bloquer.', numCtrl('lockout_max_attempts', s.lockout_max_attempts), true)}
-          ${settingsRow('Durée de blocage (min)', undefined, numCtrl('lockout_window_minutes', s.lockout_window_minutes))}
+          ${settingsRow(t('Max attempts before lockout', 'Tentatives max avant blocage'), t('0 = never lock.', '0 = jamais bloquer.'), numCtrl('lockout_max_attempts', s.lockout_max_attempts), true)}
+          ${settingsRow(t('Lockout duration (min)', 'Durée de blocage (min)'), undefined, numCtrl('lockout_window_minutes', s.lockout_window_minutes))}
 
           <div class="settings-section-head">
-            <h2>Mot de passe</h2>
-            <p class="sub">Politique de complexité appliquée à tous les comptes.</p>
+            <h2>${t('Password', 'Mot de passe')}</h2>
+            <p class="sub">${t('Complexity policy applied to every account.', 'Politique de complexité appliquée à tous les comptes.')}</p>
           </div>
-          ${settingsRow('Longueur minimale', 'Min 8, recommandé 12+.', numCtrl('password_min_length', s.password_min_length))}
-          ${settingsRow('Force minimale (zxcvbn)', 'Score de 0 (aucune contrainte) à 4 (très exigeant).', html`
+          ${settingsRow(t('Minimum length', 'Longueur minimale'), t('Min 8, 12+ recommended.', 'Min 8, recommandé 12+.'), numCtrl('password_min_length', s.password_min_length))}
+          ${settingsRow(t('Minimum strength (zxcvbn)', 'Force minimale (zxcvbn)'), t('Score from 0 (no constraint) to 4 (very strict).', 'Score de 0 (aucune contrainte) à 4 (très exigeant).'), html`
             <select name="password_min_score">
-              ${[0,1,2,3,4].map((n) => html`<option value="${String(n)}"${s.password_min_score === n ? raw(' selected') : raw('')}>${String(n)} ${n===0?'aucune':n===1?'très faible':n===2?'faible':n===3?'correct':'fort'}</option>`)}
+              ${[0,1,2,3,4].map((n) => html`<option value="${String(n)}"${s.password_min_score === n ? raw(' selected') : raw('')}>${String(n)} ${n===0?t('none','aucune'):n===1?t('very weak','très faible'):n===2?t('weak','faible'):n===3?t('fair','correct'):t('strong','fort')}</option>`)}
             </select>
           `)}
 
           <div class="settings-section-head">
-            <h2>Sessions</h2>
-            <p class="sub">Durée des sessions utilisateur sur l'IdP.</p>
+            <h2>${t('Sessions', 'Sessions')}</h2>
+            <p class="sub">${t('Lifetime of user sessions on the IdP.', "Durée des sessions utilisateur sur l'IdP.")}</p>
           </div>
-          ${settingsRow('Durée max (min)', 'Défaut 480 = 8 h.', numCtrl('session_ttl_minutes', s.session_ttl_minutes))}
-          ${settingsRow('Inactivité max (min)', 'Défaut 60 = 1 h.', numCtrl('session_idle_minutes', s.session_idle_minutes))}
+          ${settingsRow(t('Max duration (min)', 'Durée max (min)'), t('Default 480 = 8h.', 'Défaut 480 = 8 h.'), numCtrl('session_ttl_minutes', s.session_ttl_minutes))}
+          ${settingsRow(t('Max idle (min)', 'Inactivité max (min)'), t('Default 60 = 1h.', 'Défaut 60 = 1 h.'), numCtrl('session_idle_minutes', s.session_idle_minutes))}
 
           <div class="settings-section-head">
-            <h2>Comptes</h2>
-            <p class="sub">Comportement par défaut à la création d'un compte.</p>
+            <h2>${t('Accounts', 'Comptes')}</h2>
+            <p class="sub">${t('Default behavior when creating an account.', "Comportement par défaut à la création d'un compte.")}</p>
           </div>
-          ${settingsRow('Login accepté', undefined, html`
+          ${settingsRow(t('Accepted login', 'Login accepté'), undefined, html`
             <select name="login_mode">
-              <option value="both"${s.login_mode === 'both' ? raw(' selected') : raw('')}>Identifiant ou email</option>
-              <option value="username"${s.login_mode === 'username' ? raw(' selected') : raw('')}>Identifiant uniquement</option>
-              <option value="email"${s.login_mode === 'email' ? raw(' selected') : raw('')}>Email uniquement</option>
+              <option value="both"${s.login_mode === 'both' ? raw(' selected') : raw('')}>${t('Username or email', 'Identifiant ou email')}</option>
+              <option value="username"${s.login_mode === 'username' ? raw(' selected') : raw('')}>${t('Username only', 'Identifiant uniquement')}</option>
+              <option value="email"${s.login_mode === 'email' ? raw(' selected') : raw('')}>${t('Email only', 'Email uniquement')}</option>
             </select>
           `)}
-          ${settingsRow('Rôle par défaut', undefined, html`
+          ${settingsRow(t('Default role', 'Rôle par défaut'), undefined, html`
             <select name="default_role">
-              <option value="member"${s.default_role === 'member' ? raw(' selected') : raw('')}>Membre</option>
+              <option value="member"${s.default_role === 'member' ? raw(' selected') : raw('')}>${t('Member', 'Membre')}</option>
               <option value="admin"${s.default_role === 'admin' ? raw(' selected') : raw('')}>Admin</option>
             </select>
           `)}
 
           <div class="form-actions">
-            <button type="submit" class="btn-primary btn-md">Enregistrer</button>
+            <button type="submit" class="btn-primary btn-md">${t('Save', 'Enregistrer')}</button>
           </div>
         </form>
       </div>
     </div>
   `;
-  return layout({ title: 'Paramètres', body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'settings' });
+  return layout({ title: t('Settings', 'Paramètres'), body, user: opts.user, csrfToken: opts.csrfToken, mode: 'admin', activeSection: 'settings' });
 }
