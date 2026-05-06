@@ -161,9 +161,11 @@ export function searchPicker(opts: {
   selected: Set<string>;
   placeholder?: string;
   emptyLabel?: string;
+  noOptionsLabel?: string;
 }): Raw {
   const sel = opts.items.filter((i) => opts.selected.has(i.id));
   const all = opts.items;
+  const noOptions = opts.noOptionsLabel ?? t('No option available.', 'Aucune option disponible.');
   return html`<div class="picker" data-picker data-name="${opts.name}">
     <div class="picker-chips" data-chips data-empty="${opts.emptyLabel ?? ''}">
       ${sel.map((it) => html`<span class="picker-chip" data-chip data-id="${it.id}" data-label="${it.label}" data-sub="${it.sub ?? ''}">
@@ -179,6 +181,7 @@ export function searchPicker(opts: {
           <span class="picker-option-label">${it.label}</span>
           ${it.sub ? html`<span class="picker-option-sub">${it.sub}</span>` : ''}
         </button>`)}
+        <div class="picker-no-options" data-no-options hidden>${noOptions}</div>
       </div>
     </div>
   </div>`;

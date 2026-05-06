@@ -231,6 +231,7 @@ export function usersListPage(opts: {
                   <th>${t('Role', 'Rôle')}</th>
                   <th>${t('Groups', 'Groupes')}</th>
                   <th>${t('Status', 'État')}</th>
+                  <th>${t('Actions', 'Actions')}</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
@@ -612,6 +613,7 @@ export function groupEditPage(opts: {
                 selected: opts.memberUserIds,
                 placeholder: t('Search a user…', 'Rechercher un utilisateur…'),
                 emptyLabel: t('No member yet.', 'Aucun membre.'),
+                noOptionsLabel: t('No user available.', 'Aucun utilisateur disponible.'),
               }), true)}
           ${opts.allUsers.length ? html`
             <div class="form-actions">
@@ -942,6 +944,7 @@ export function clientEditPage(opts: {
                   selected: opts.selectedUsers,
                   placeholder: t('Search a user…', 'Rechercher un utilisateur…'),
                   emptyLabel: t('No user selected.', 'Aucun utilisateur sélectionné.'),
+                  noOptionsLabel: t('No user available.', 'Aucun utilisateur disponible.'),
                 }))}
 
           <div class="form-actions">

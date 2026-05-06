@@ -1389,6 +1389,12 @@ export function layout(opts: LayoutOpts): Raw {
       font-size: 13px;
     }
     .picker-option:hover { background: var(--hover); }
+    .picker-no-options {
+      padding: 10px 12px;
+      font-size: 12.5px;
+      color: var(--text-faint);
+      font-style: italic;
+    }
     .picker-option .picker-option-label { font-weight: 500; }
     .picker-option .picker-option-sub {
       display: block;

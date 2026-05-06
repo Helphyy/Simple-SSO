@@ -75,7 +75,16 @@ const APP_JS = `(function(){
     var input = root.querySelector('[data-picker-input]');
     var list = root.querySelector('[data-list]');
     var options = list ? list.querySelectorAll('.picker-option') : [];
+    var noOpts = list ? list.querySelector('[data-no-options]') : null;
     var selected = {};
+    function updateNoOptions() {
+      if (!noOpts) return;
+      var anyVisible = false;
+      for (var i = 0; i < options.length; i++) {
+        if (options[i].style.display !== 'none') { anyVisible = true; break; }
+      }
+      noOpts.hidden = anyVisible;
+    }
 
     // Read pre-selected chips (rendered server-side as data-id on existing chips)
     var initial = chipsEl ? chipsEl.querySelectorAll('[data-chip]') : [];
@@ -122,6 +131,7 @@ const APP_JS = `(function(){
         var oid = options[i].getAttribute('data-id');
         options[i].style.display = selected[oid] ? 'none' : '';
       }
+      updateNoOptions();
     }
     function filter() {
       var q = (input.value || '').trim().toLowerCase();
@@ -132,6 +142,7 @@ const APP_JS = `(function(){
         var oid = options[i].getAttribute('data-id');
         options[i].style.display = (match && !selected[oid]) ? '' : 'none';
       }
+      updateNoOptions();
     }
     refreshOptions();
     input.addEventListener('focus', function(){ list.hidden = false; });
