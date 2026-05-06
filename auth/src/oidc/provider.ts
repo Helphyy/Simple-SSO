@@ -2,6 +2,9 @@ import OidcProvider, { type Configuration } from 'oidc-provider';
 import { config } from '../config.js';
 import { SqliteAdapter, userClaims } from './adapter.js';
 import { loadOrGenerateJwks } from './keys.js';
+import { Sessions } from '../models/sessions.js';
+import { unsign } from '../lib/signed_cookie.js';
+import { SESSION_COOKIE } from '../middleware/session.js';
 
 const jwks = loadOrGenerateJwks();
 
@@ -80,3 +83,39 @@ const configuration: Configuration = {
 // (pas de préfixe /oidc — oidc-provider n'en gère pas nativement).
 export const provider = new OidcProvider(config.PUBLIC_URL, configuration);
 provider.proxy = true;
+
+// ── Sync our Hono session with OIDC end_session ────────────────────
+// When a relying party (e.g. Outline) triggers the RP-initiated logout
+// flow, oidc-provider clears its own session but ours stays alive,
+// which lets a subsequent /auth flow silently re-authenticate the user.
+// On end_session.success, destroy the matching Hono session and clear
+// the cookie so the user is fully logged out everywhere.
+function killHonoSession(ctx: any) {
+  try {
+    const cookieHeader: string = ctx.request?.headers?.cookie ?? '';
+    const m = cookieHeader.split(';').map((p: string) => p.trim()).find((p: string) => p.startsWith(SESSION_COOKIE + '='));
+    if (m) {
+      const raw = decodeURIComponent(m.slice(SESSION_COOKIE.length + 1));
+      const sid = unsign(raw);
+      if (sid) Sessions.destroy(sid);
+    }
+    const isSecure = config.cookieSecure;
+    const expire = `Expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${isSecure ? '; Secure' : ''}`;
+    const existing = ctx.response?.get?.('Set-Cookie');
+    const additions = [
+      `${SESSION_COOKIE}=; ${expire}`,
+      `_session=; ${expire}`,
+      `_session.legacy=; ${expire}`,
+      `_session.sig=; ${expire}`,
+      `_session.legacy.sig=; ${expire}`,
+    ];
+    const merged = existing
+      ? (Array.isArray(existing) ? existing.concat(additions) : [existing as string].concat(additions))
+      : additions;
+    ctx.response?.set?.('Set-Cookie', merged);
+  } catch (e) {
+    console.error('[oidc end_session sync]', e);
+  }
+}
+provider.on('end_session.success', killHonoSession);
+provider.on('end_session.error', killHonoSession);
