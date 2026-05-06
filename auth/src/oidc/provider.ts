@@ -5,6 +5,7 @@ import { loadOrGenerateJwks } from './keys.js';
 import { Sessions } from '../models/sessions.js';
 import { unsign } from '../lib/signed_cookie.js';
 import { SESSION_COOKIE } from '../middleware/session.js';
+import { Clients } from '../models/clients.js';
 
 const jwks = loadOrGenerateJwks();
 
@@ -39,7 +40,25 @@ const configuration: Configuration = {
         ctx.type = 'html';
         ctx.body = `<!doctype html><html><body onload="document.forms[0].submit()">${form}</body></html>`;
       },
+      // Called when the RP triggered logout without a (valid) post_logout_redirect_uri.
+      // We previously fell back to '/' which sent the user to the SSO login page —
+      // confusing when they expected to land on the client app. Prefer the client's
+      // own home_url (or its first registered post_logout_uri) when we can identify
+      // the client; otherwise keep the '/' fallback.
       postLogoutSuccessSource: async (ctx: any) => {
+        try {
+          const clientId: string | undefined = ctx.oidc?.client?.clientId;
+          if (clientId) {
+            const c = Clients.findById(clientId);
+            if (c) {
+              if (c.home_url) { ctx.redirect(c.home_url); return; }
+              const plu: string[] = JSON.parse(c.post_logout_uris || '[]');
+              if (plu[0]) { ctx.redirect(plu[0]); return; }
+            }
+          }
+        } catch (e) {
+          console.error('[oidc postLogoutSuccessSource]', e);
+        }
         ctx.redirect('/');
       },
     },
