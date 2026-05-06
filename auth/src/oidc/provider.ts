@@ -40,14 +40,38 @@ const configuration: Configuration = {
         ctx.type = 'html';
         ctx.body = `<!doctype html><html><body onload="document.forms[0].submit()">${form}</body></html>`;
       },
-      // Called when the RP triggered logout without a (valid) post_logout_redirect_uri.
-      // We previously fell back to '/' which sent the user to the SSO login page —
-      // confusing when they expected to land on the client app. Prefer the client's
-      // own home_url (or its first registered post_logout_uri) when we can identify
-      // the client; otherwise keep the '/' fallback.
+      // Called when the RP triggered logout without a (valid)
+      // post_logout_redirect_uri reaching the redirect step.
+      // We previously fell back to '/' which sent the user to the SSO
+      // login page, even though they expected to land on the client app
+      // they just logged out of. Try every source we can to identify the
+      // originating client, then redirect to its home_url (or first
+      // registered post_logout_uri). Belt-and-suspenders: also
+      // forcefully kill the Hono session here in case the
+      // end_session.* event hook didn't fire (e.g., on early errors).
       postLogoutSuccessSource: async (ctx: any) => {
+        killHonoSession(ctx);
         try {
-          const clientId: string | undefined = ctx.oidc?.client?.clientId;
+          // 1. ctx.oidc.client (set when id_token_hint or client_id matched)
+          let clientId: string | undefined = ctx.oidc?.client?.clientId;
+
+          // 2. Explicit client_id query param (Outline sends it)
+          if (!clientId) {
+            const q = ctx.oidc?.params?.client_id ?? ctx.query?.client_id;
+            if (typeof q === 'string' && q) clientId = q;
+          }
+
+          // 3. Match post_logout_redirect_uri against any registered client
+          if (!clientId) {
+            const plru: string | undefined =
+              ctx.oidc?.params?.post_logout_redirect_uri ?? ctx.query?.post_logout_redirect_uri;
+            if (plru) {
+              for (const c of Clients.listAll()) {
+                if (c.post_logout_uris.includes(plru)) { ctx.redirect(plru); return; }
+              }
+            }
+          }
+
           if (clientId) {
             const c = Clients.findById(clientId);
             if (c) {
@@ -55,6 +79,14 @@ const configuration: Configuration = {
               const plu: string[] = JSON.parse(c.post_logout_uris || '[]');
               if (plu[0]) { ctx.redirect(plu[0]); return; }
             }
+          }
+
+          // 4. Single-client deployment: just send them to that client's home.
+          const all = Clients.listAll();
+          if (all.length === 1) {
+            const only = all[0]!;
+            if (only.home_url) { ctx.redirect(only.home_url); return; }
+            if (only.post_logout_uris[0]) { ctx.redirect(only.post_logout_uris[0]); return; }
           }
         } catch (e) {
           console.error('[oidc postLogoutSuccessSource]', e);
