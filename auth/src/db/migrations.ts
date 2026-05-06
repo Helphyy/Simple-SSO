@@ -222,6 +222,38 @@ const MIGRATIONS: Migration[] = [
       ALTER TABLE oidc_clients ADD COLUMN home_url TEXT;
     `,
   },
+  {
+    id: 9,
+    name: 'email_required',
+    // Backfill any user with NULL email to a placeholder so OIDC clients
+    // requiring an email claim (Outline) keep working, then make the column
+    // NOT NULL. Admins are expected to update placeholder emails afterwards.
+    sql: `
+      UPDATE users
+         SET email = username || '@local.invalid'
+       WHERE email IS NULL OR email = '';
+
+      CREATE TABLE users_new (
+        id                   TEXT PRIMARY KEY,
+        username             TEXT UNIQUE NOT NULL,
+        email                TEXT UNIQUE NOT NULL,
+        first_name           TEXT NOT NULL DEFAULT '',
+        last_name            TEXT NOT NULL DEFAULT '',
+        password_hash        TEXT NOT NULL,
+        role                 TEXT NOT NULL CHECK (role IN ('admin','member')),
+        enabled              INTEGER NOT NULL DEFAULT 1,
+        must_change_password INTEGER NOT NULL DEFAULT 1,
+        created_at           INTEGER NOT NULL,
+        updated_at           INTEGER NOT NULL,
+        last_login_at        INTEGER
+      );
+      INSERT INTO users_new SELECT * FROM users;
+      DROP TABLE users;
+      ALTER TABLE users_new RENAME TO users;
+      CREATE INDEX idx_users_username ON users(username);
+      CREATE INDEX idx_users_email    ON users(email);
+    `,
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

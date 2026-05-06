@@ -54,8 +54,31 @@ export const securityHeaders: MiddlewareHandler = async (c, next) => {
   }
 };
 
+/**
+ * Returns the client IP, respecting TRUST_PROXY_COUNT.
+ *
+ * X-Forwarded-For grows left-to-right as the request transits proxies:
+ *   client, proxy1, proxy2, …
+ * If we trust N proxies in front, the real client IP is at index
+ * `length - 1 - N` from the right (the rightmost N entries are our trusted
+ * hops, anything before them is attacker-controlled).
+ *
+ * With TRUST_PROXY_COUNT=0, X-Forwarded-For is ignored entirely (direct
+ * connection assumed) — required to avoid IP spoofing when the service is
+ * exposed without a reverse proxy.
+ */
 export function getClientIp(c: any): string {
-  const fwd = c.req.header('x-forwarded-for');
-  if (fwd) return fwd.split(',')[0]!.trim();
-  return c.req.header('x-real-ip') ?? c.env?.incoming?.socket?.remoteAddress ?? 'unknown';
+  const trust = config.TRUST_PROXY_COUNT;
+  if (trust > 0) {
+    const fwd = c.req.header('x-forwarded-for');
+    if (fwd) {
+      const parts = fwd.split(',').map((s: string) => s.trim()).filter(Boolean);
+      const idx = parts.length - trust;
+      if (idx >= 0 && idx < parts.length) return parts[idx]!;
+      if (parts.length) return parts[0]!;
+    }
+    const real = c.req.header('x-real-ip');
+    if (real) return real.trim();
+  }
+  return c.env?.incoming?.socket?.remoteAddress ?? 'unknown';
 }

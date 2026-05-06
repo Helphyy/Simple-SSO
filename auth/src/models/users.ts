@@ -107,5 +107,11 @@ export const Users = {
   count(): number {
     return (db.prepare('SELECT COUNT(*) AS c FROM users').get() as any).c;
   },
+
+  countActiveAdmins(): number {
+    return (db.prepare(
+      `SELECT COUNT(*) AS c FROM users WHERE role = 'admin' AND enabled = 1`
+    ).get() as any).c;
+  },
 };
 

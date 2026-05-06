@@ -426,7 +426,7 @@ authRoutes.get('/change-password', (c) => {
 const ChangePwInput = z.object({
   current: z.string().min(1),
   next: z.string().min(12),
-  confirm: z.string().min(1),
+  confirm: z.string().min(12),
   csrf: z.string(),
 });
 

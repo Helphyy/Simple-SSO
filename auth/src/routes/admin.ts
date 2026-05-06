@@ -21,6 +21,21 @@ import { parseImageUpload, uploadErrorMessage } from '../lib/upload.js';
 
 const LOGO_MIMES = ['image/png', 'image/jpeg', 'image/svg+xml'] as const;
 const BG_MIMES   = ['image/png', 'image/jpeg', 'image/webp'] as const;
+
+// Validate a client URL: scheme must be http/https; http only allowed on
+// localhost/127.0.0.1 (dev). Returns null if valid, an error message if not.
+function validateClientUrl(raw: string): string | null {
+  let u: URL;
+  try { u = new URL(raw); }
+  catch { return `${t('Invalid URL:', 'URL invalide :')} ${raw}`; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    return `${t('Only http(s) URLs allowed:', 'Seules les URLs http(s) sont autorisées :')} ${raw}`;
+  }
+  if (u.protocol === 'http:' && u.hostname !== 'localhost' && u.hostname !== '127.0.0.1' && u.hostname !== '::1') {
+    return `${t('http:// is only allowed on localhost:', 'http:// est uniquement autorisé sur localhost :')} ${raw}`;
+  }
+  return null;
+}
 import { csrfValid } from '../lib/csrf.js';
 import { getClientIp } from '../middleware/security.js';
 import { requireAuth, requireAdmin } from '../middleware/session.js';
@@ -232,6 +247,21 @@ adminRoutes.post('/users/:id', async (c) => {
     }), 400);
   }
 
+  // Prevent demoting/disabling the last active admin even when an admin
+  // operates on someone else's account.
+  const wasActiveAdmin = target.role === 'admin' && !!target.enabled;
+  const stillActiveAdmin = input.role === 'admin' && enabledNow;
+  if (wasActiveAdmin && !stillActiveAdmin && Users.countActiveAdmins() <= 1) {
+    return html(c, userEditPage({
+      user: navUser(c),
+      csrfToken: c.get('csrfToken') as string,
+      target,
+      allGroups: Groups.listAll(),
+      memberGroupIds: new Set(Groups.groupsOf(target.id).map((g) => g.id)),
+      error: t('Cannot demote or disable the last active administrator.', "Impossible de rétrograder ou désactiver le dernier administrateur actif."),
+    }), 400);
+  }
+
   if (input.username !== target.username) {
     const clash = Users.findByUsername(input.username);
     if (clash && clash.id !== target.id) {
@@ -363,6 +393,18 @@ adminRoutes.post('/users/:id/delete', async (c) => {
   const body = await parseBodyCsrf(c);
   if (!body) return c.text('CSRF invalid', 403);
 
+  // Refuse to delete the last active admin (would brick the system).
+  if (target.role === 'admin' && target.enabled && Users.countActiveAdmins() <= 1) {
+    return c.text(
+      t('Cannot delete the last active administrator.', 'Impossible de supprimer le dernier administrateur actif.'),
+      400
+    );
+  }
+
+  // Cascade cleanup. user_groups + sessions are FK CASCADE, but client_access
+  // has no FK on principal_id and would leave orphan rows.
+  Sessions.destroyAllForUser(target.id);
+  Access.removeForPrincipal('user', target.id);
   Users.delete(target.id);
   Audit.log({
     actorUserId: self.id,
@@ -567,14 +609,14 @@ adminRoutes.post('/clients', async (c) => {
   const logoutUris = parsed.data.post_logout_uris.split('\n').map((s) => s.trim()).filter(Boolean);
 
   for (const u of [...redirectUris, ...logoutUris]) {
-    try { new URL(u); } catch { return renderError(`${t('Invalid URL:', 'URL invalide :')} ${u}`); }
+    const err = validateClientUrl(u);
+    if (err) return renderError(err);
   }
 
   let homeUrl: string | null = null;
   if (parsed.data.home_url.trim()) {
-    try { new URL(parsed.data.home_url); } catch {
-      return renderError(`${t('Invalid URL:', 'URL invalide :')} ${parsed.data.home_url}`);
-    }
+    const err = validateClientUrl(parsed.data.home_url);
+    if (err) return renderError(err);
     homeUrl = parsed.data.home_url.trim().slice(0, 500);
   }
 
@@ -682,15 +724,13 @@ adminRoutes.post('/clients/:id', async (c) => {
   const redirectUris = parsed.data.redirect_uris.split('\n').map((s) => s.trim()).filter(Boolean);
   const logoutUris = parsed.data.post_logout_uris.split('\n').map((s) => s.trim()).filter(Boolean);
   for (const u of [...redirectUris, ...logoutUris]) {
-    try { new URL(u); } catch {
-      return renderError(`${t('Invalid URL:', 'URL invalide :')} ${u}`, body);
-    }
+    const err = validateClientUrl(u);
+    if (err) return renderError(err, body);
   }
   let homeUrl: string | null = null;
   if (parsed.data.home_url.trim()) {
-    try { new URL(parsed.data.home_url); } catch {
-      return renderError(`${t('Invalid URL:', 'URL invalide :')} ${parsed.data.home_url}`, body);
-    }
+    const err = validateClientUrl(parsed.data.home_url);
+    if (err) return renderError(err, body);
     homeUrl = parsed.data.home_url.trim().slice(0, 500);
   }
 

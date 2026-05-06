@@ -6,6 +6,10 @@ const Env = z.object({
   DATA_DIR: z.string().default('/app/data'),
   PUBLIC_URL: z.string().url(),
   SESSION_SECRET: z.string().min(32),
+  // Number of trusted reverse proxies in front of the auth service.
+  // Used to pick the right IP from X-Forwarded-For without trusting
+  // arbitrary client-supplied entries.
+  TRUST_PROXY_COUNT: z.coerce.number().int().nonnegative().default(1),
 });
 
 const parsed = Env.safeParse(process.env);

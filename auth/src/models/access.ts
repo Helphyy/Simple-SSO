@@ -46,4 +46,11 @@ export const Access = {
       for (const p of principals) ins.run(clientId, p.type, p.id);
     })();
   },
+
+  /** Purge all client_access entries pointing to a deleted principal. */
+  removeForPrincipal(type: 'user' | 'group', id: string): void {
+    db.prepare(
+      'DELETE FROM client_access WHERE principal_type = ? AND principal_id = ?'
+    ).run(type, id);
+  },
 };
