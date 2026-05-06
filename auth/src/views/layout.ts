@@ -715,6 +715,40 @@ export function layout(opts: LayoutOpts): Raw {
       }
       .settings-row-label { padding-top: 0; flex: none; }
       .settings-row-control { max-width: none; }
+
+      /* Tables : scroll horizontal inside the card on small screens */
+      .card:has(> .data-table) {
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+      }
+      .data-table { min-width: 560px; }
+      .data-table thead th,
+      .data-table tbody td { padding: 10px 14px; }
+      .data-table thead th:first-child,
+      .data-table tbody td:first-child { padding-left: 16px; }
+      .data-table thead th:last-child,
+      .data-table tbody td:last-child { padding-right: 16px; }
+
+      /* Row actions wrap if too narrow */
+      .data-table .row-actions { flex-wrap: wrap; gap: 4px 6px; }
+
+      /* Page header stacks vertically */
+      .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .page-title { font-size: 19px; }
+
+      /* Form actions wrap */
+      .form-actions { flex-wrap: wrap; gap: 8px; }
+
+      /* Picker chips: keep label tight on mobile */
+      .picker-chip { font-size: 12px; }
+
+      /* Tighter content padding on very small screens */
+      .content { padding: 24px 14px 48px; }
     }
 
     /* ── Form primitives ───────────────────────────────── */
