@@ -169,11 +169,20 @@ authRoutes.post('/login', async (c) => {
   const parsed = LoginInput.safeParse(body);
   const ip = getClientIp(c);
 
+  // Preserve the OIDC context across failed attempts: `next` (e.g. the
+  // /interaction/<uid> we came from) and the client_id used for branding.
+  // Otherwise a wrong password silently drops the user back into the
+  // generic admin login flow.
+  const rawNext = typeof (body as any).next === 'string' ? (body as any).next : '';
+  const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : undefined;
+  const clientIdRaw = c.req.query('client') ?? (typeof (body as any).client === 'string' ? (body as any).client : undefined);
+  const clientId = clientIdRaw && /^[A-Za-z0-9._:-]+$/.test(clientIdRaw) ? clientIdRaw : undefined;
+
   const renderFail = (username: string, error: string) => {
     const csrfToken = issueLoginCsrf(c);
     c.header('Content-Type', 'text/html; charset=utf-8');
     c.status(401);
-    return c.body(render$(loginPage({ username, error, csrfToken })));
+    return c.body(render$(loginPage({ username, error, csrfToken, next: safeNext, clientId })));
   };
 
   const cookieCsrf = getCookie(c, LOGIN_CSRF_COOKIE);
