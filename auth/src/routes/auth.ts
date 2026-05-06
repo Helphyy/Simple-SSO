@@ -16,7 +16,7 @@ import { Access } from '../models/access.js';
 import { Brand } from '../models/branding.js';
 import { render$ } from '../lib/html.js';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { setCookie } from 'hono/cookie';
+import { setCookie, deleteCookie } from 'hono/cookie';
 import {
   issueSessionCookie,
   clearSessionCookie,
@@ -402,6 +402,13 @@ authRoutes.post('/logout', async (c) => {
     }
   }
   clearSessionCookie(c);
+  // Clear oidc-provider's session cookies too — otherwise the OIDC layer
+  // still considers the user authenticated and any subsequent /auth flow
+  // (e.g. coming back from Outline) silently grants an auth code without
+  // going through our /interaction/ handler.
+  for (const name of ['_session', '_session.legacy', '_session.sig', '_session.legacy.sig', '_interaction', '_interaction_resume', '_grant']) {
+    deleteCookie(c, name, { path: '/' });
+  }
   return c.redirect('/login');
 });
 
