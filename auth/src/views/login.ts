@@ -48,6 +48,7 @@ export function loginPage(opts: {
 
     <form method="POST" action="/login" class="stack-4">
       <input type="hidden" name="next" value="${opts.next ?? ''}"/>
+      ${opts.clientId ? html`<input type="hidden" name="client" value="${opts.clientId}"/>` : ''}
       ${opts.csrfToken ? html`<input type="hidden" name="csrf" value="${opts.csrfToken}"/>` : ''}
 
       <div class="form-field">
