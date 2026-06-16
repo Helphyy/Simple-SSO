@@ -63,6 +63,40 @@ End-to-end test: **http://localhost:3000** (Outline), click "Continue with Simpl
 
 ---
 
+## Bundled integration: kan.bn
+
+The stack also ships **kan.bn** (open source Trello alternative) as a second OIDC client, exposed on port `3002`. It runs on its own Postgres 15 (kan requires 15, Outline 17) with a dedicated `kan-postgres-data` volume.
+
+Add these to `.env`:
+
+```env
+KAN_PUBLIC_URL=http://localhost:3002
+KAN_DB_PASSWORD=<openssl rand -hex 16>
+KAN_BETTER_AUTH_SECRET=<openssl rand -hex 32>
+KAN_OIDC_CLIENT_ID=kan
+KAN_OIDC_CLIENT_SECRET=<filled after registering the client below>
+```
+
+Register the client in the SSO admin (**Applications, + New**):
+
+| Field         | Value                                                  |
+|---------------|--------------------------------------------------------|
+| Client ID     | `kan`                                                  |
+| Redirect URIs | `http://localhost:3002/api/auth/oauth2/callback/oidc`  |
+| Post Logout   | `http://localhost:3002`                                |
+
+Copy the generated secret into `KAN_OIDC_CLIENT_SECRET`, then:
+
+```bash
+docker compose up -d --force-recreate kan
+```
+
+Open **http://localhost:3002** and use "Sign in with OIDC".
+
+> Going public: update `KAN_PUBLIC_URL` to your public URL (e.g. `https://kan.example.com`) and update the Redirect URI in the admin accordingly.
+
+---
+
 ## Integrating another application
 
 Any standard OIDC client works. Give it:
@@ -99,7 +133,8 @@ In the OIDC client (admin UI): update Redirect URIs and Post Logout with the pub
   - Branding: `/admin/branding`
   - Settings: `/admin/settings`
   - Audit: `/admin/audit`
-- Wiki (test integration): http://localhost:3000
+- Wiki (Outline): http://localhost:3000
+- Kanban (kan.bn): http://localhost:3002
 
 ## Maintenance
 
@@ -125,6 +160,7 @@ Volumes to back up:
 
 - `auth-data`: Simple SSO SQLite database (users, clients, audit, settings)
 - `postgres-data`, `outline-data`: only if you use the Outline integration
+- `kan-postgres-data`: only if you use the kan.bn integration
 
 ```bash
 docker exec getouline-auth-1 sh -c 'cp /app/data/auth.db /app/data/auth.db.bak'

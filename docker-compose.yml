@@ -63,7 +63,58 @@ services:
       PUBLIC_URL: ${AUTH_PUBLIC_URL}
       SESSION_SECRET: ${AUTH_SESSION_SECRET}
 
+  # ── Postgres dédié kan (kan exige PG15, Outline tourne en PG17) ──
+  kan-postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kan_db
+      POSTGRES_USER: kan
+      POSTGRES_PASSWORD: ${KAN_DB_PASSWORD}
+    volumes:
+      - kan-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kan -d kan_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Migration schéma kan (one-shot) ──
+  kan-migrate:
+    image: ghcr.io/kanbn/kan-migrate:latest
+    restart: "no"
+    depends_on:
+      kan-postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_URL: postgres://kan:${KAN_DB_PASSWORD}@kan-postgres:5432/kan_db
+
+  # ── kan (alternative Trello, second client OIDC) ──
+  kan:
+    image: ghcr.io/kanbn/kan:latest
+    restart: unless-stopped
+    depends_on:
+      kan-migrate:
+        condition: service_completed_successfully
+      auth:
+        condition: service_started
+    ports:
+      - "3002:3000"
+    environment:
+      NEXT_PUBLIC_BASE_URL: ${KAN_PUBLIC_URL}
+      BETTER_AUTH_SECRET: ${KAN_BETTER_AUTH_SECRET}
+      BETTER_AUTH_TRUSTED_ORIGINS: ${KAN_PUBLIC_URL}
+      POSTGRES_URL: postgres://kan:${KAN_DB_PASSWORD}@kan-postgres:5432/kan_db
+      # Désactive l'inscription par mot de passe local, force le SSO.
+      NEXT_PUBLIC_DISABLE_SIGN_UP: "true"
+      # OIDC vers Simple SSO.
+      # DISCOVERY_URL doit pointer sur l'URL publique : kan y redirige le navigateur.
+      OIDC_CLIENT_ID: ${KAN_OIDC_CLIENT_ID}
+      OIDC_CLIENT_SECRET: ${KAN_OIDC_CLIENT_SECRET}
+      OIDC_DISCOVERY_URL: ${AUTH_PUBLIC_URL}/.well-known/openid-configuration
+
 volumes:
   postgres-data:
   outline-data:
   auth-data:
+  kan-postgres-data:
