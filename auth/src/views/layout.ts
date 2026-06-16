@@ -48,6 +48,7 @@ export function layout(opts: LayoutOpts): Raw {
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="dark light"/>
   <title>${opts.title} ${b.app_name}</title>
+  <link rel="icon" href="/favicon.ico"/>
   <script src="/assets/app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@2.0.4" crossorigin="anonymous"></script>

@@ -13,6 +13,7 @@ import { authRoutes } from './routes/auth.js';
 import { adminRoutes } from './routes/admin.js';
 import { handleInteraction } from './routes/interaction.js';
 import { provider } from './oidc/provider.js';
+import { Brand } from './models/branding.js';
 
 // ── Hono app (tout sauf /oidc/*) ──
 const app = new Hono<AppEnv>();
@@ -174,6 +175,27 @@ app.get('/assets/app.js', (c) => {
   c.header('Content-Type', 'application/javascript; charset=utf-8');
   c.header('Cache-Control', 'public, max-age=3600');
   return c.body(APP_JS);
+});
+
+// Favicon : sert le logo de branding tel quel s'il est défini, sinon
+// génère un SVG carré avec l'initiale du nom de l'app sur le primary.
+function faviconFromBrand(): { body: Buffer; contentType: string } {
+  const b = Brand.get(null);
+  if (b.logo_data_url) {
+    const m = b.logo_data_url.match(/^data:([^;]+);base64,(.+)$/);
+    if (m) return { body: Buffer.from(m[2]!, 'base64'), contentType: m[1]! };
+  }
+  const letter = (b.app_name.trim()[0] ?? '?').toUpperCase()
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const fill = (b.primary_color || '#1f1f1f').replace(/"/g, '');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="${fill}"/><text x="32" y="44" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-size="36" font-weight="700" fill="#fff" text-anchor="middle">${letter}</text></svg>`;
+  return { body: Buffer.from(svg, 'utf8'), contentType: 'image/svg+xml; charset=utf-8' };
+}
+app.get('/favicon.ico', (c) => {
+  const { body, contentType } = faviconFromBrand();
+  c.header('Content-Type', contentType);
+  c.header('Cache-Control', 'public, max-age=300');
+  return c.body(new Uint8Array(body));
 });
 
 app.get('/', (c) => {
