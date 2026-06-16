@@ -15,12 +15,20 @@ Simple SSO was originally built to plug SSO into **Outline**, which is why the w
 
 ## Getting started
 
+> **Dev networking note.** In dev, `localhost` works everywhere (browser, Outline, Planka), thanks to two pieces of plumbing:
+> - **Outline** uses split OIDC URIs (`OIDC_AUTH_URI` for the browser, `OIDC_TOKEN_URI` for the internal Docker DNS).
+> - **Planka** runs alongside a tiny `socat` sidecar (`planka-sso-proxy`) that listens on `localhost:4000` *inside Planka's network namespace* and forwards to `auth:4000`. The browser AND Planka use the same `OIDC_ISSUER=http://localhost:4000`.
+>
+> In prod, none of this matters: your public domain (`https://sso.example.com`) resolves identically from anywhere.
+
 **1. Fill in the secrets in `.env`**
 
 ```bash
-openssl rand -hex 32   # SECRET_KEY, UTILS_SECRET, AUTH_SESSION_SECRET
+openssl rand -hex 32   # SECRET_KEY, UTILS_SECRET, AUTH_SESSION_SECRET, PLANKA_SECRET_KEY
 openssl rand -hex 16   # OUTLINE_DB_PASSWORD
 ```
+
+For dev over plain HTTP, keep `NODE_ENV=development` and `ENVIRONMENT=development` (Outline refuses to send its OAuth state cookie over HTTP if `NODE_ENV=production`).
 
 **2. Start it up**
 
@@ -39,8 +47,11 @@ In the admin: **Applications, + New**. Example for the bundled Outline integrati
 | Field         | Value                                      |
 |---------------|--------------------------------------------|
 | Client ID     | `outline`                                  |
+| Home URL      | `http://localhost:3000`                    |
 | Redirect URIs | `http://localhost:3000/auth/oidc.callback` |
 | Post Logout   | `http://localhost:3000`                    |
+
+> The **Home URL** is what the user dashboard card links to. If left empty, the card is rendered greyed-out and non-clickable.
 
 Copy the **Client Secret** (shown only once) into `.env`:
 
@@ -59,41 +70,51 @@ docker compose up -d --force-recreate outline
 
 In the admin: **Users, + New**. They then sign in to the client app via the SSO button.
 
+**6. Grant access to the application**
+
+By default, each new OIDC client is **open** (everyone authenticated can sign in). As soon as you add the first allowed principal (user or group), it switches to **restricted**: only listed users/groups can access.
+
+In the admin: **Applications, click the app, Configure access**. Pick the users or groups that should be allowed. The selected users will see the app card on their dashboard. Users without access get an `access_denied` error mid-OIDC flow.
+
+> Admins are not implicitly allowed. If you restrict an app to a specific group, add yourself too (or your group) or you'll be locked out.
+
 End-to-end test: **http://localhost:3000** (Outline), click "Continue with Simple SSO".
 
 ---
 
-## Bundled integration: kan.bn
+## Bundled integration: Planka
 
-The stack also ships **kan.bn** (open source Trello alternative) as a second OIDC client, exposed on port `3002`. It runs on its own Postgres 15 (kan requires 15, Outline 17) with a dedicated `kan-postgres-data` volume.
+The stack also ships **Planka** (open source Trello alternative, modern UI) as a second OIDC client on port `3002`. It uses its own Postgres 16 (`planka-postgres-data` volume) and a `planka-data` volume for uploads. A `socat` sidecar (`planka-sso-proxy`) makes `localhost:4000` resolve to the SSO from inside Planka.
 
-Add these to `.env`:
+Add to `.env`:
 
 ```env
-KAN_PUBLIC_URL=http://localhost:3002
-KAN_DB_PASSWORD=<openssl rand -hex 16>
-KAN_BETTER_AUTH_SECRET=<openssl rand -hex 32>
-KAN_OIDC_CLIENT_ID=kan
-KAN_OIDC_CLIENT_SECRET=<filled after registering the client below>
+PLANKA_PUBLIC_URL=http://localhost:3002
+PLANKA_SECRET_KEY=<openssl rand -hex 32>
+PLANKA_OIDC_CLIENT_ID=planka
+PLANKA_OIDC_CLIENT_SECRET=<filled after registering the client below>
 ```
 
 Register the client in the SSO admin (**Applications, + New**):
 
-| Field         | Value                                                  |
-|---------------|--------------------------------------------------------|
-| Client ID     | `kan`                                                  |
-| Redirect URIs | `http://localhost:3002/api/auth/oauth2/callback/oidc`  |
-| Post Logout   | `http://localhost:3002`                                |
+| Field         | Value                                       |
+|---------------|---------------------------------------------|
+| Client ID     | `planka`                                    |
+| Home URL      | `http://localhost:3002`                     |
+| Redirect URIs | `http://localhost:3002/oidc-callback`       |
+| Post Logout   | `http://localhost:3002`                     |
 
-Copy the generated secret into `KAN_OIDC_CLIENT_SECRET`, then:
+Then **Configure access** on the client to add the users/groups allowed to sign in (see step 6 above). Without an access entry the app stays open to all authenticated users; as soon as one entry exists, only listed principals get in.
+
+Copy the generated secret into `PLANKA_OIDC_CLIENT_SECRET`, then:
 
 ```bash
-docker compose up -d --force-recreate kan
+docker compose up -d --force-recreate planka
 ```
 
-Open **http://localhost:3002** and use "Sign in with OIDC".
+Open **http://LAN_IP:3002** and click the "Single Sign-On" button on the login screen.
 
-> Going public: update `KAN_PUBLIC_URL` to your public URL (e.g. `https://kan.example.com`) and update the Redirect URI in the admin accordingly.
+> Going public: update `PLANKA_PUBLIC_URL` to your public URL (e.g. `https://kanban.example.com`) and update the Redirect URI in the admin accordingly.
 
 ---
 
@@ -117,7 +138,10 @@ In `.env`:
 
 ```env
 AUTH_PUBLIC_URL=https://auth.example.com
-URL=https://wiki.example.com         # Outline side
+URL=https://wiki.example.com           # Outline side
+PLANKA_PUBLIC_URL=https://kanban.example.com
+NODE_ENV=production
+ENVIRONMENT=production
 FORCE_HTTPS=true
 ```
 
@@ -134,7 +158,7 @@ In the OIDC client (admin UI): update Redirect URIs and Post Logout with the pub
   - Settings: `/admin/settings`
   - Audit: `/admin/audit`
 - Wiki (Outline): http://localhost:3000
-- Kanban (kan.bn): http://localhost:3002
+- Kanban (Planka): http://localhost:3002
 
 ## Maintenance
 
@@ -160,7 +184,7 @@ Volumes to back up:
 
 - `auth-data`: Simple SSO SQLite database (users, clients, audit, settings)
 - `postgres-data`, `outline-data`: only if you use the Outline integration
-- `kan-postgres-data`: only if you use the kan.bn integration
+- `planka-postgres-data`, `planka-data`: only if you use the Planka integration
 
 ```bash
 docker exec getouline-auth-1 sh -c 'cp /app/data/auth.db /app/data/auth.db.bak'

@@ -63,58 +63,71 @@ services:
       PUBLIC_URL: ${AUTH_PUBLIC_URL}
       SESSION_SECRET: ${AUTH_SESSION_SECRET}
 
-  # ── Postgres dédié kan (kan exige PG15, Outline tourne en PG17) ──
-  kan-postgres:
-    image: postgres:15-alpine
+  # ── Postgres dédié Planka ──
+  planka-postgres:
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: kan_db
-      POSTGRES_USER: kan
-      POSTGRES_PASSWORD: ${KAN_DB_PASSWORD}
+      POSTGRES_DB: planka
+      POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
-      - kan-postgres-data:/var/lib/postgresql/data
+      - planka-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kan -d kan_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d planka"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  # ── Migration schéma kan (one-shot) ──
-  kan-migrate:
-    image: ghcr.io/kanbn/kan-migrate:latest
-    restart: "no"
-    depends_on:
-      kan-postgres:
-        condition: service_healthy
-    environment:
-      POSTGRES_URL: postgres://kan:${KAN_DB_PASSWORD}@kan-postgres:5432/kan_db
-
-  # ── kan (alternative Trello, second client OIDC) ──
-  kan:
-    image: ghcr.io/kanbn/kan:latest
+  # ── Planka (kanban, second client OIDC) ──
+  # En dev, AUTH_PUBLIC_URL=http://localhost:4000 (pour le navigateur).
+  # Le sidecar `planka-sso-proxy` ouvre 127.0.0.1:4000 dans le NETWORK
+  # NAMESPACE de Planka et forward vers `auth:4000` : le serveur Planka
+  # peut donc faire ses calls token/userinfo sur localhost:4000 comme le
+  # navigateur, sans split d'URL. En prod (DNS public), c'est inutile.
+  planka:
+    image: ghcr.io/plankanban/planka:latest
     restart: unless-stopped
     depends_on:
-      kan-migrate:
-        condition: service_completed_successfully
+      planka-postgres:
+        condition: service_healthy
       auth:
         condition: service_started
     ports:
-      - "3002:3000"
+      - "3002:1337"
+    volumes:
+      - planka-data:/app/data
     environment:
-      NEXT_PUBLIC_BASE_URL: ${KAN_PUBLIC_URL}
-      BETTER_AUTH_SECRET: ${KAN_BETTER_AUTH_SECRET}
-      BETTER_AUTH_TRUSTED_ORIGINS: ${KAN_PUBLIC_URL}
-      POSTGRES_URL: postgres://kan:${KAN_DB_PASSWORD}@kan-postgres:5432/kan_db
-      # Désactive l'inscription par mot de passe local, force le SSO.
-      NEXT_PUBLIC_DISABLE_SIGN_UP: "true"
-      # OIDC vers Simple SSO.
-      # DISCOVERY_URL doit pointer sur l'URL publique : kan y redirige le navigateur.
-      OIDC_CLIENT_ID: ${KAN_OIDC_CLIENT_ID}
-      OIDC_CLIENT_SECRET: ${KAN_OIDC_CLIENT_SECRET}
-      OIDC_DISCOVERY_URL: ${AUTH_PUBLIC_URL}/.well-known/openid-configuration
+      BASE_URL: ${PLANKA_PUBLIC_URL}
+      DATABASE_URL: postgresql://postgres@planka-postgres/planka
+      SECRET_KEY: ${PLANKA_SECRET_KEY}
+      TRUST_PROXY: "true"
+      OIDC_ISSUER: ${AUTH_PUBLIC_URL}
+      OIDC_CLIENT_ID: ${PLANKA_OIDC_CLIENT_ID}
+      OIDC_CLIENT_SECRET: ${PLANKA_OIDC_CLIENT_SECRET}
+      OIDC_SCOPES: openid email profile
+      OIDC_EMAIL_ATTRIBUTE: email
+      OIDC_NAME_ATTRIBUTE: name
+      OIDC_USERNAME_ATTRIBUTE: preferred_username
+      OIDC_IGNORE_ROLES: "true"
+
+  # Sidecar : bind 127.0.0.1:4000 → auth:4000 dans le netns de Planka.
+  # Permet à Planka d'utiliser la même OIDC_ISSUER que le navigateur en dev.
+  planka-sso-proxy:
+    image: alpine/socat:latest
+    restart: unless-stopped
+    network_mode: "service:planka"
+    depends_on:
+      planka:
+        condition: service_started
+      auth:
+        condition: service_started
+    # TCP6-LISTEN bind ::1 = dual-stack loopback : Node préfère ::1, et le
+    # socket IPv6 sur Linux accepte aussi les connexions IPv4 mappées.
+    command: ["TCP6-LISTEN:4000,fork,reuseaddr,bind=[::1]", "TCP:auth:4000"]
 
 volumes:
   postgres-data:
   outline-data:
   auth-data:
-  kan-postgres-data:
+  planka-postgres-data:
+  planka-data:
