@@ -123,6 +123,26 @@ body {
   box-shadow: 0 6px 16px hsla(229, 40%, 3%, .45);
 }
 
+/* Titres des cartes : lisibles au premier coup d'oeil */
+.bucket .tasks .task h3,
+.kanban .task h3 {
+  font-family: inherit !important;
+  font-size: 1.02rem !important;
+  font-weight: 700 !important;
+  color: var(--text-strong) !important;
+  line-height: 1.35;
+}
+
+/* Gantt : libellés des barres lisibles eux aussi */
+.gantt-bar-text {
+  font-size: .95rem !important;
+  font-weight: 700 !important;
+}
+
+.gantt-bar {
+  border-radius: 6px !important;
+}
+
 /* ── Labels : pastilles lisibles ──────────────────────────────────── */
 .tag {
   border-radius: 999px !important;
