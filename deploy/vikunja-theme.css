@@ -5,14 +5,8 @@
  * Rollback : retirer le <link> du sub_filter nginx, rien d'autre à défaire.
  */
 
-/* ── Accent : violet moderne (les deux modes) ─────────────────────── */
-:root,
-.dark {
-  --primary-h: 255deg;
-  --primary-s: 72%;
-  --primary-l: 64%;
-  --primary-dark-l: 52%;
-}
+/* ── Accent : on garde le bleu natif de Vikunja (--primary d'origine),
+   les règles ci-dessous s'y réfèrent via var(--primary-*). ─────────── */
 
 /* ── Mode sombre : fonds profonds et froids, meilleure hiérarchie ── */
 .dark {
