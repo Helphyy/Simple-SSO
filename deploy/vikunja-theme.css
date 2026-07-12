@@ -39,8 +39,10 @@ html {
   --card-content-padding: 1rem;
 }
 
-/* Kanban : colonnes un peu plus étroites et rapprochées */
-.bucket {
+/* Kanban : colonnes un peu plus étroites et rapprochées.
+   Ne surtout pas toucher aux colonnes repliées (.is-collapsed : rotation
+   + marge négative) ni au bouton "nouvelle colonne". */
+.bucket:not(.is-collapsed):not(.new-bucket) {
   inline-size: 280px !important;
   margin: 0 .75rem 0 0 !important;
 }
