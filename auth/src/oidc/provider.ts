@@ -37,8 +37,15 @@ const configuration: Configuration = {
     clientCredentials: { enabled: false },
     rpInitiatedLogout: {
       logoutSource: async (ctx: any, form: string) => {
+        // Le formulaire oidc-provider a deux issues : le bouton "logout"
+        // (name=logout value=yes) termine la session OP, l'absence du champ
+        // signifie "rester connecté" (seul le client est déconnecté).
+        // form.submit() n'inclut la valeur d'aucun bouton : sans injection
+        // du champ, la session SSO survivait et le client suivant se
+        // ré-authentifiait silencieusement juste après le logout.
+        const withLogout = form.replace('</form>', '<input type="hidden" name="logout" value="yes"/></form>');
         ctx.type = 'html';
-        ctx.body = `<!doctype html><html><body onload="document.forms[0].submit()">${form}</body></html>`;
+        ctx.body = `<!doctype html><html><body onload="document.forms[0].submit()">${withLogout}</body></html>`;
       },
       // Called when the RP triggered logout without a (valid)
       // post_logout_redirect_uri reaching the redirect step.
