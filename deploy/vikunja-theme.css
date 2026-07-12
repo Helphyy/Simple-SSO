@@ -32,6 +32,13 @@
   --shadow-md: 0 8px 24px hsla(229, 40%, 3%, .55);
 }
 
+/* ── Densité : l'UI Vikunja est dimensionnée large, on dézoome tout ──
+   Tout le design est en rem : abaisser la racine resserre uniformément
+   (16px -> 14px, équivalent d'un zoom navigateur à ~87%). */
+html {
+  font-size: 14px !important;
+}
+
 /* ── Typo : stack système propre ───────────────────────────────────── */
 body {
   font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto,
