@@ -15,9 +15,9 @@ Simple SSO was originally built to plug SSO into **Outline**, which is why the w
 
 ## Getting started
 
-> **Dev networking note.** In dev, `localhost` works everywhere (browser, Outline, Planka), thanks to two pieces of plumbing:
+> **Dev networking note.** In dev, `localhost` works everywhere (browser, Outline, Vikunja):
 > - **Outline** uses split OIDC URIs (`OIDC_AUTH_URI` for the browser, `OIDC_TOKEN_URI` for the internal Docker DNS).
-> - **Planka** runs alongside a tiny `socat` sidecar (`planka-sso-proxy`) that listens on `localhost:4000` *inside Planka's network namespace* and forwards to `auth:4000`. The browser AND Planka use the same `OIDC_ISSUER=http://localhost:4000`.
+> - **Vikunja** runs with `network_mode: host`: the container's `localhost` is the machine's, so the OIDC issuer `http://localhost:4000` resolves identically for the Vikunja server and for the browser. It listens directly on port `3002`.
 >
 > In prod, none of this matters: your public domain (`https://sso.example.com`) resolves identically from anywhere.
 
@@ -28,7 +28,7 @@ openssl rand -hex 32   # SECRET_KEY, UTILS_SECRET, AUTH_SESSION_SECRET, PLANKA_S
 openssl rand -hex 16   # OUTLINE_DB_PASSWORD
 ```
 
-For dev over plain HTTP, keep `NODE_ENV=development` and `ENVIRONMENT=development` (Outline refuses to send its OAuth state cookie over HTTP if `NODE_ENV=production`).
+`NODE_ENV=production` works even for local HTTP dev: the compose file patches Outline's hardcoded `secure` cookie flag at container start (see the comment above the `outline` service), so no HTTPS is required locally.
 
 **2. Start it up**
 
@@ -82,39 +82,41 @@ End-to-end test: **http://localhost:3000** (Outline), click "Continue with Simpl
 
 ---
 
-## Bundled integration: Planka
+## Bundled integration: Vikunja
 
-The stack also ships **Planka** (open source Trello alternative, modern UI) as a second OIDC client on port `3002`. It uses its own Postgres 16 (`planka-postgres-data` volume) and a `planka-data` volume for uploads. A `socat` sidecar (`planka-sso-proxy`) makes `localhost:4000` resolve to the SSO from inside Planka.
+The stack also ships **Vikunja** (open source project management: List, **Kanban**, **Gantt** and Table views on the same tasks) as a second OIDC client on port `3002`. It stores everything in SQLite (`vikunja-db` volume) plus a `vikunja-files` volume for attachments; no extra Postgres needed. Local login is disabled: SSO only.
 
 Add to `.env`:
 
 ```env
-PLANKA_PUBLIC_URL=http://localhost:3002
-PLANKA_SECRET_KEY=<openssl rand -hex 32>
-PLANKA_OIDC_CLIENT_ID=planka
-PLANKA_OIDC_CLIENT_SECRET=<filled after registering the client below>
+VIKUNJA_PUBLIC_URL=http://localhost:3002
+VIKUNJA_JWT_SECRET=<openssl rand -hex 32>
+VIKUNJA_OIDC_CLIENT_ID=vikunja
+VIKUNJA_OIDC_CLIENT_SECRET=<filled after registering the client below>
 ```
 
 Register the client in the SSO admin (**Applications, + New**):
 
-| Field         | Value                                       |
-|---------------|---------------------------------------------|
-| Client ID     | `planka`                                    |
-| Home URL      | `http://localhost:3002`                     |
-| Redirect URIs | `http://localhost:3002/oidc-callback`       |
-| Post Logout   | `http://localhost:3002`                     |
+| Field         | Value                                          |
+|---------------|------------------------------------------------|
+| Client ID     | `vikunja`                                      |
+| Home URL      | `http://localhost:3002`                        |
+| Redirect URIs | `http://localhost:3002/auth/openid/simplesso`  |
+| Post Logout   | `http://localhost:3002`                        |
 
 Then **Configure access** on the client to add the users/groups allowed to sign in (see step 6 above). Without an access entry the app stays open to all authenticated users; as soon as one entry exists, only listed principals get in.
 
-Copy the generated secret into `PLANKA_OIDC_CLIENT_SECRET`, then:
+Copy the generated secret into `VIKUNJA_OIDC_CLIENT_SECRET`, then:
 
 ```bash
-docker compose up -d --force-recreate planka
+docker compose up -d --force-recreate vikunja
 ```
 
-Open **http://LAN_IP:3002** and click the "Single Sign-On" button on the login screen.
+Open **http://localhost:3002** and click the "Simple SSO" button on the login screen. The first login creates your Vikunja account automatically from the OIDC claims.
 
-> Going public: update `PLANKA_PUBLIC_URL` to your public URL (e.g. `https://kanban.example.com`) and update the Redirect URI in the admin accordingly.
+> Vikunja fetches the OIDC discovery document at startup. If you change the client secret or the SSO was not up yet, recreate the container (`docker compose up -d --force-recreate vikunja`).
+>
+> Going public: update `VIKUNJA_PUBLIC_URL` to your public URL (e.g. `https://tasks.example.com`) and update the Redirect URI in the admin accordingly.
 
 ---
 
@@ -139,7 +141,7 @@ In `.env`:
 ```env
 AUTH_PUBLIC_URL=https://auth.example.com
 URL=https://wiki.example.com           # Outline side
-PLANKA_PUBLIC_URL=https://kanban.example.com
+VIKUNJA_PUBLIC_URL=https://tasks.example.com
 NODE_ENV=production
 ENVIRONMENT=production
 FORCE_HTTPS=true
@@ -158,7 +160,7 @@ In the OIDC client (admin UI): update Redirect URIs and Post Logout with the pub
   - Settings: `/admin/settings`
   - Audit: `/admin/audit`
 - Wiki (Outline): http://localhost:3000
-- Kanban (Planka): http://localhost:3002
+- Kanban + Gantt (Vikunja): http://localhost:3002
 
 ## Maintenance
 
@@ -167,6 +169,8 @@ docker compose logs -f                            # tail logs
 docker compose pull && docker compose up -d      # update
 docker compose down -v && docker compose up -d   # full reset (wipes everything)
 ```
+
+> **Vikunja networking note.** `vikunja` uses `network_mode: host` (Linux only) and listens on port `3002` of the machine directly, no `ports:` mapping involved. If that port is busy, change `VIKUNJA_SERVICE_INTERFACE` in the compose file.
 
 Admin forgot their password, rerun setup:
 
@@ -184,7 +188,7 @@ Volumes to back up:
 
 - `auth-data`: Simple SSO SQLite database (users, clients, audit, settings)
 - `postgres-data`, `outline-data`: only if you use the Outline integration
-- `planka-postgres-data`, `planka-data`: only if you use the Planka integration
+- `vikunja-db`, `vikunja-files`: only if you use the Vikunja integration
 
 ```bash
 docker exec getouline-auth-1 sh -c 'cp /app/data/auth.db /app/data/auth.db.bak'

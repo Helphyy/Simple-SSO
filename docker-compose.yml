@@ -26,6 +26,13 @@ services:
       retries: 5
 
   # ── Outline (wiki) ──
+  # Patch dev local : Outline v1.8+ force `secure: env.isProduction` sur ses
+  # cookies OAuth (passport state + CSRF), ce qui crash en HTTP. On override
+  # l'entrypoint pour neutraliser ce flag avant de booter. En prod (HTTPS),
+  # le sed ne change rien fonctionnellement puisque `secure: true` aurait
+  # été le bon comportement de toute façon — mais on garde le patch pour la
+  # simplicité d'un seul compose. Le navigateur accepte les cookies non-Secure
+  # sur HTTPS sans problème.
   outline:
     image: docker.getoutline.com/outlinewiki/outline:latest
     restart: unless-stopped
@@ -39,6 +46,12 @@ services:
     ports:
       - "3000:3000"
     env_file: ./.env
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        grep -rl 'secure: _env\.default\.isProduction' /opt/outline/build \
+          | xargs -r sed -i 's/secure: _env\.default\.isProduction/secure: false/g'
+        exec docker-entrypoint.sh node build/server/index.js
     volumes:
       - outline-data:/var/lib/outline/data
     environment:
@@ -63,71 +76,46 @@ services:
       PUBLIC_URL: ${AUTH_PUBLIC_URL}
       SESSION_SECRET: ${AUTH_SESSION_SECRET}
 
-  # ── Postgres dédié Planka ──
-  planka-postgres:
-    image: postgres:16-alpine
+  # ── Vikunja (kanban + gantt, second client OIDC) ──
+  # List / Kanban / Gantt / Table sur les mêmes tâches. SQLite, pas de
+  # Postgres dédié. Login local désactivé : SSO uniquement.
+  # network_mode: host : Vikunja fetch la discovery OIDC côté serveur, et
+  # l'issuer est http://localhost:4000. En réseau host, le localhost du
+  # container est celui de la machine, donc l'issuer résout pareil pour le
+  # serveur Vikunja et pour le navigateur. Zéro proxy, zéro split d'URL.
+  # Vikunja n'a besoin de joindre aucun autre container (SQLite local),
+  # il écoute directement sur le port 3002 de la machine.
+  vikunja:
+    image: vikunja/vikunja:latest
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: planka
-      POSTGRES_HOST_AUTH_METHOD: trust
-    volumes:
-      - planka-postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d planka"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  # ── Planka (kanban, second client OIDC) ──
-  # En dev, AUTH_PUBLIC_URL=http://localhost:4000 (pour le navigateur).
-  # Le sidecar `planka-sso-proxy` ouvre 127.0.0.1:4000 dans le NETWORK
-  # NAMESPACE de Planka et forward vers `auth:4000` : le serveur Planka
-  # peut donc faire ses calls token/userinfo sur localhost:4000 comme le
-  # navigateur, sans split d'URL. En prod (DNS public), c'est inutile.
-  planka:
-    image: ghcr.io/plankanban/planka:latest
-    restart: unless-stopped
+    # L'image tourne en uid 1000 mais les volumes nommés sont créés root :
+    # on lance en root (binaire Go unique, pas d'escalade possible ailleurs).
+    user: "0:0"
+    network_mode: host
     depends_on:
-      planka-postgres:
-        condition: service_healthy
       auth:
         condition: service_started
-    ports:
-      - "3002:1337"
     volumes:
-      - planka-data:/app/data
+      - vikunja-files:/app/vikunja/files
+      - vikunja-db:/db
     environment:
-      BASE_URL: ${PLANKA_PUBLIC_URL}
-      DATABASE_URL: postgresql://postgres@planka-postgres/planka
-      SECRET_KEY: ${PLANKA_SECRET_KEY}
-      TRUST_PROXY: "true"
-      OIDC_ISSUER: ${AUTH_PUBLIC_URL}
-      OIDC_CLIENT_ID: ${PLANKA_OIDC_CLIENT_ID}
-      OIDC_CLIENT_SECRET: ${PLANKA_OIDC_CLIENT_SECRET}
-      OIDC_SCOPES: openid email profile
-      OIDC_EMAIL_ATTRIBUTE: email
-      OIDC_NAME_ATTRIBUTE: name
-      OIDC_USERNAME_ATTRIBUTE: preferred_username
-      OIDC_IGNORE_ROLES: "true"
-
-  # Sidecar : bind 127.0.0.1:4000 → auth:4000 dans le netns de Planka.
-  # Permet à Planka d'utiliser la même OIDC_ISSUER que le navigateur en dev.
-  planka-sso-proxy:
-    image: alpine/socat:latest
-    restart: unless-stopped
-    network_mode: "service:planka"
-    depends_on:
-      planka:
-        condition: service_started
-      auth:
-        condition: service_started
-    # TCP6-LISTEN bind ::1 = dual-stack loopback : Node préfère ::1, et le
-    # socket IPv6 sur Linux accepte aussi les connexions IPv4 mappées.
-    command: ["TCP6-LISTEN:4000,fork,reuseaddr,bind=[::1]", "TCP:auth:4000"]
+      VIKUNJA_SERVICE_INTERFACE: ":3002"
+      VIKUNJA_SERVICE_PUBLICURL: ${VIKUNJA_PUBLIC_URL}
+      VIKUNJA_SERVICE_SECRET: ${VIKUNJA_JWT_SECRET}
+      VIKUNJA_DATABASE_TYPE: sqlite
+      VIKUNJA_DATABASE_PATH: /db/vikunja.db
+      VIKUNJA_SERVICE_ENABLEREGISTRATION: "false"
+      VIKUNJA_AUTH_LOCAL_ENABLED: "false"
+      VIKUNJA_AUTH_OPENID_ENABLED: "true"
+      VIKUNJA_AUTH_OPENID_PROVIDERS_SIMPLESSO_NAME: Simple SSO
+      VIKUNJA_AUTH_OPENID_PROVIDERS_SIMPLESSO_AUTHURL: ${AUTH_PUBLIC_URL}
+      VIKUNJA_AUTH_OPENID_PROVIDERS_SIMPLESSO_CLIENTID: ${VIKUNJA_OIDC_CLIENT_ID}
+      VIKUNJA_AUTH_OPENID_PROVIDERS_SIMPLESSO_CLIENTSECRET: ${VIKUNJA_OIDC_CLIENT_SECRET}
+      VIKUNJA_AUTH_OPENID_PROVIDERS_SIMPLESSO_SCOPE: openid profile email
 
 volumes:
   postgres-data:
   outline-data:
   auth-data:
-  planka-postgres-data:
-  planka-data:
+  vikunja-files:
+  vikunja-db:
