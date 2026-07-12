@@ -190,18 +190,30 @@ body {
   background: transparent;
 }
 
-/* Bouton Enregistrer de l'éditeur : un vrai bouton primaire */
+/* Actions de l'éditeur (Edit / Save) : pastille discrète alignée à
+   droite, raccord avec le bloc, qui s'affirme au survol. */
+.tiptap__editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: .35rem !important;
+}
+
 .done-edit {
-  background: var(--primary) !important;
-  color: #fff !important;
-  border: none !important;
-  border-radius: 10px !important;
+  background: transparent !important;
+  color: var(--primary) !important;
+  border: 1px solid var(--card-border-color) !important;
+  border-radius: 999px !important;
+  padding: .15rem .85rem !important;
+  font-size: .8rem !important;
   font-weight: 600;
-  box-shadow: 0 4px 14px hsla(var(--primary-h), var(--primary-s), 40%, .35);
+  box-shadow: none !important;
+  transition: all .12s ease;
 }
 
 .done-edit:hover {
-  filter: brightness(1.08);
+  border-color: var(--primary) !important;
+  background: hsla(var(--primary-h), var(--primary-s), var(--primary-l), .12) !important;
+  text-decoration: none !important;
 }
 
 /* Titre et champs simples : focus visible */
