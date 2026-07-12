@@ -151,6 +151,12 @@ server {
     client_max_body_size 100m;
     location / {
         proxy_pass http://127.0.0.1:3002;
+        # Hide the "Use Vikunja installation at ... / change" block on the
+        # login page (the frontend is embedded in the Go binary, there is
+        # no config option for it, so we inject a bit of CSS here).
+        proxy_set_header Accept-Encoding "";
+        sub_filter '</head>' '<style>.api-config{display:none!important}</style></head>';
+        sub_filter_once on;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
