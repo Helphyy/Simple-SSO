@@ -10,12 +10,15 @@ function initial(name: string): string {
   return (name.trim()[0] ?? '?').toUpperCase();
 }
 
-function faviconFor(homeUrl: string | null): string | null {
-  if (!homeUrl) return null;
+// Chemins candidats pour l'icône d'une app sans logo uploadé. Certaines
+// SPA (Outline) répondent 200 text/html sur /favicon.ico : l'img casse et
+// app.js bascule alors sur le candidat suivant (voir data-fallbacks).
+function faviconCandidates(homeUrl: string | null): string[] {
+  if (!homeUrl) return [];
   try {
-    const u = new URL(homeUrl);
-    return `${u.origin}/favicon.ico`;
-  } catch { return null; }
+    const origin = new URL(homeUrl).origin;
+    return [`${origin}/favicon.ico`, `${origin}/images/favicon-32.png`, `${origin}/favicon.png`];
+  } catch { return []; }
 }
 
 export function userHubPage(opts: {
@@ -56,8 +59,8 @@ export function userHubPage(opts: {
             <div class="app-card-head">
               ${a.logo
                 ? html`<img src="${a.logo}" alt="" class="app-card-logo"/>`
-                : faviconFor(a.home_url)
-                  ? html`<span class="app-card-logo-wrap" data-letter="${initial(a.displayName)}"><img src="${faviconFor(a.home_url)!}" alt="" class="app-card-logo"/></span>`
+                : faviconCandidates(a.home_url).length
+                  ? html`<span class="app-card-logo-wrap" data-letter="${initial(a.displayName)}"><img src="${faviconCandidates(a.home_url)[0]!}" data-fallbacks="${faviconCandidates(a.home_url).slice(1).join(' ')}" alt="" class="app-card-logo"/></span>`
                   : html`<span class="app-card-logo-fallback">${initial(a.displayName)}</span>`}
               <svg class="app-card-arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M5 11l6-6M6 4h5v5"/>

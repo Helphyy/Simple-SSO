@@ -54,6 +54,28 @@ const APP_JS = `(function(){
     try { localStorage.setItem('theme', next); } catch(e){}
   });
 
+  // ── App card favicons ───────────────────────────────────────────
+  // Les cartes du hub devinent l'icône via home_url (/favicon.ico...).
+  // Si une URL casse (404, ou une SPA qui repond du HTML), on tente le
+  // candidat suivant (data-fallbacks), puis l'initiale en dernier recours.
+  document.addEventListener('error', function(e){
+    var img = e.target;
+    if (!img || !img.classList || !img.classList.contains('app-card-logo')) return;
+    var wrap = img.closest && img.closest('.app-card-logo-wrap');
+    if (!wrap) return;
+    var rest = (img.getAttribute('data-fallbacks') || '').trim();
+    if (rest) {
+      var parts = rest.split(' ');
+      img.setAttribute('data-fallbacks', parts.slice(1).join(' '));
+      img.src = parts[0];
+      return;
+    }
+    var span = document.createElement('span');
+    span.className = 'app-card-logo-fallback';
+    span.textContent = wrap.getAttribute('data-letter') || '?';
+    wrap.parentNode.replaceChild(span, wrap);
+  }, true);
+
   // ── Searchable picker ───────────────────────────────────────────
   // Markup:
   //   <div class="picker" data-picker data-name="users">
