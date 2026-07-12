@@ -33,6 +33,31 @@ html {
   font-size: 12px !important;
 }
 
+/* ── Espacements : resserrés, sans tasser ─────────────────────────── */
+:root,
+.dark {
+  --card-content-padding: 1rem;
+}
+
+/* Kanban : colonnes un peu plus étroites et rapprochées */
+.bucket {
+  inline-size: 280px !important;
+  margin: 0 .75rem 0 0 !important;
+}
+
+.bucket .tasks .task {
+  margin-block-end: .5rem !important;
+}
+
+/* ── Header : le logo ne doit pas coller le haut de page ─────────── */
+.navbar {
+  padding-block: .5rem;
+}
+
+.logo {
+  margin-block-start: .75rem;
+}
+
 /* ── Typo : stack système propre ───────────────────────────────────── */
 body {
   font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto,
