@@ -132,6 +132,144 @@ Then add the matching `Redirect URI` in the client's record.
 
 ---
 
+## Deploying on a VM behind your own nginx (self-signed TLS)
+
+Scenario: the stack runs on a VM, you access it through hostnames (here `*.local.langskip.net`) resolved via `/etc/hosts`, and a natively installed nginx (`apt install nginx`) on the VM terminates TLS with a self-signed certificate and routes by hostname to the containers. No public exposure.
+
+**1. `/etc/hosts`, in two places**
+
+On your workstation, point the names to the VM's IP:
+
+```
+192.168.x.x  sso.local.langskip.net kb.local.langskip.net projet.local.langskip.net
+```
+
+On the VM itself, point them to loopback (required: Vikunja runs with host networking and fetches the OIDC discovery from `sso.local.langskip.net`, which must resolve from the VM too):
+
+```
+127.0.0.1  sso.local.langskip.net kb.local.langskip.net projet.local.langskip.net
+```
+
+**2. Local CA + certificate (on the VM)**
+
+One throwaway CA plus one certificate with the three names as SANs:
+
+```bash
+mkdir -p /etc/nginx/certs && cd /etc/nginx/certs
+
+# CA
+openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes \
+  -keyout ca.key -out ca.crt -subj "/CN=langskip local CA"
+
+# Server key + CSR + signed cert (SANs = the 3 hostnames)
+openssl req -newkey rsa:2048 -nodes -keyout server.key -out server.csr \
+  -subj "/CN=sso.local.langskip.net"
+cat > san.cnf <<'CNF'
+subjectAltName=DNS:sso.local.langskip.net,DNS:kb.local.langskip.net,DNS:projet.local.langskip.net
+CNF
+openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+  -days 825 -sha256 -extfile san.cnf -out server.crt
+```
+
+Import `ca.crt` in your workstation browser (Settings, Certificates, Authorities) to get rid of the warnings.
+
+**3. `.env`**
+
+```env
+AUTH_PUBLIC_URL=https://sso.local.langskip.net
+URL=https://kb.local.langskip.net
+VIKUNJA_PUBLIC_URL=https://projet.local.langskip.net
+FORCE_HTTPS=false   # TLS is terminated by nginx, Outline stays plain HTTP internally
+```
+
+**4. Make Vikunja trust the CA**
+
+Vikunja fetches the OIDC discovery from `https://sso.local.langskip.net` server-side and will reject the self-signed chain otherwise. Add to the `vikunja` service in `docker-compose.yml`:
+
+```yaml
+    environment:
+      SSL_CERT_FILE: /certs/ca.crt   # Go trusts only this CA, enough here
+    volumes:
+      - /etc/nginx/certs/ca.crt:/certs/ca.crt:ro
+```
+
+Outline needs nothing: its server-side OIDC calls go straight to `http://auth:4000` inside the Docker network.
+
+**5. Redirect URIs in the SSO admin**
+
+| Client    | Home URL                             | Redirect URI                                               |
+|-----------|--------------------------------------|------------------------------------------------------------|
+| `outline` | `https://kb.local.langskip.net`      | `https://kb.local.langskip.net/auth/oidc.callback`          |
+| `vikunja` | `https://projet.local.langskip.net`  | `https://projet.local.langskip.net/auth/openid/simplesso`   |
+
+**6. nginx**
+
+One server block per hostname, TLS terminated here, proxying to the container ports. The `Upgrade`/`Connection` headers are required: Outline uses websockets for live collaboration.
+
+```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 80;
+    server_name sso.local.langskip.net kb.local.langskip.net projet.local.langskip.net;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name sso.local.langskip.net;
+    ssl_certificate     /etc/nginx/certs/server.crt;
+    ssl_certificate_key /etc/nginx/certs/server.key;
+    location / {
+        proxy_pass http://127.0.0.1:4000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name kb.local.langskip.net;
+    ssl_certificate     /etc/nginx/certs/server.crt;
+    ssl_certificate_key /etc/nginx/certs/server.key;
+    client_max_body_size 100m;
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name projet.local.langskip.net;
+    ssl_certificate     /etc/nginx/certs/server.crt;
+    ssl_certificate_key /etc/nginx/certs/server.key;
+    client_max_body_size 100m;
+    location / {
+        proxy_pass http://127.0.0.1:3002;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+    }
+}
+```
+
+Then `docker compose up -d --force-recreate outline vikunja` after changing `.env`, and reload nginx. `AUTH_PUBLIC_URL` in `https://` automatically enables `Secure` on the SSO session cookies; Outline keeps its patched non-Secure cookies, which browsers accept over HTTPS without issue.
+
+---
+
 ## Going public
 
 On a public domain, replace local URLs **everywhere**:
