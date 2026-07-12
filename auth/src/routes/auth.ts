@@ -73,6 +73,8 @@ authRoutes.get('/setup', (c) => {
 const SetupInput = z.object({
   username: z.string().min(1).max(100).regex(/^[a-z0-9._-]+$/i, 'INVALID_USERNAME_FORMAT'),
   email: z.string().email(),
+  first_name: z.string().max(100).optional().default(''),
+  last_name: z.string().max(100).optional().default(''),
   password: z.string().min(12),
   confirm: z.string().min(12),
   csrf: z.string().optional(),
@@ -89,7 +91,7 @@ authRoutes.post('/setup', async (c) => {
     const csrfToken = issueLoginCsrf(c);
     c.header('Content-Type', 'text/html; charset=utf-8');
     c.status(400);
-    return c.body(render$(setupPage({ error: err, csrfToken, username: fd?.username, email: fd?.email })));
+    return c.body(render$(setupPage({ error: err, csrfToken, username: fd?.username, email: fd?.email, first_name: fd?.first_name, last_name: fd?.last_name })));
   };
 
   if (!verifyLoginCsrf(cookieCsrf, formCsrf)) return fail(t('Session expired, please try again.', 'Session expirée, réessaie.'));
@@ -116,8 +118,8 @@ authRoutes.post('/setup', async (c) => {
       const u = Users.create({
         username: input.username,
         email: input.email || null,
-        first_name: 'Admin',
-        last_name: '',
+        first_name: input.first_name.trim(),
+        last_name: input.last_name.trim(),
         password_hash: hash,
         role: 'admin',
         must_change_password: false,

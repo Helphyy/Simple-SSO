@@ -80,6 +80,8 @@ export function setupPage(opts: {
   csrfToken: string;
   username?: string;
   email?: string;
+  first_name?: string;
+  last_name?: string;
 }): Raw {
   const body = html`
     ${opts.error ? html`<div class="alert alert-danger" style="margin-bottom: 18px;">${opts.error}</div>` : ''}
@@ -97,6 +99,14 @@ export function setupPage(opts: {
       <div class="form-field">
         <label class="label">Email</label>
         <input name="email" type="email" required value="${opts.email ?? ''}" class="w-full" placeholder="admin@example.com"/>
+      </div>
+      <div class="form-field">
+        <label class="label">${t('First name', 'Prénom')} <span class="help-text">(${t('optional', 'optionnel')})</span></label>
+        <input name="first_name" type="text" maxlength="100" value="${opts.first_name ?? ''}" class="w-full"/>
+      </div>
+      <div class="form-field">
+        <label class="label">${t('Last name', 'Nom')} <span class="help-text">(${t('optional', 'optionnel')})</span></label>
+        <input name="last_name" type="text" maxlength="100" value="${opts.last_name ?? ''}" class="w-full"/>
       </div>
       <div class="form-field">
         <label class="label">${t('Password', 'Mot de passe')}</label>
