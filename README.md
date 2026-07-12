@@ -149,6 +149,10 @@ server {
     ssl_certificate     /etc/nginx/certs/server.crt;
     ssl_certificate_key /etc/nginx/certs/server.key;
     client_max_body_size 100m;
+    location /custom-fonts/ {
+        alias /opt/Simple-SSO/deploy/fonts/;
+        add_header Cache-Control "public, max-age=604800";
+    }
     location = /custom-theme.css {
         alias /opt/Simple-SSO/deploy/vikunja-theme.css;
         add_header Cache-Control "no-cache";
