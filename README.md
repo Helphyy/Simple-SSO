@@ -149,13 +149,19 @@ server {
     ssl_certificate     /etc/nginx/certs/server.crt;
     ssl_certificate_key /etc/nginx/certs/server.key;
     client_max_body_size 100m;
+    location = /custom-theme.css {
+        alias /opt/Simple-SSO/deploy/vikunja-theme.css;
+        add_header Cache-Control "no-cache";
+    }
     location / {
         proxy_pass http://127.0.0.1:3002;
-        # Hide the "Use Vikunja installation at ... / change" block on the
-        # login page (the frontend is embedded in the Go binary, there is
-        # no config option for it, so we inject a bit of CSS here).
+        # Vikunja frontend is embedded in the Go binary: no config hook for
+        # theming. Two injections through sub_filter instead:
+        # 1. hide the "Use Vikunja installation at ... / change" login block
+        # 2. load the custom theme (deploy/vikunja-theme.css in this repo)
+        # Rollback of the theme = remove the <link> from the line below.
         proxy_set_header Accept-Encoding "";
-        sub_filter '</head>' '<style>.api-config{display:none!important}</style></head>';
+        sub_filter '</head>' '<style>.api-config{display:none!important}</style><link rel="stylesheet" href="/custom-theme.css"></head>';
         sub_filter_once on;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
