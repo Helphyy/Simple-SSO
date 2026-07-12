@@ -100,3 +100,93 @@ body {
 .auth-form {
   border-radius: 16px !important;
 }
+
+/* ══ Création et édition de tâches ═════════════════════════════════ */
+
+/* Vue détail : plus large, mieux respirée */
+.task-view {
+  max-inline-size: 1100px;
+  margin-inline: auto;
+}
+
+.task-view .heading .input,
+.task-view h1.title .input,
+.task-view .title.input {
+  font-size: 1.55rem !important;
+  font-weight: 700 !important;
+  line-height: 1.25;
+  border-radius: 10px !important;
+}
+
+/* Zone description (éditeur) : vraie zone de saisie, focus visible */
+.task-view .details.content .textarea,
+.task-view .details.content [contenteditable] {
+  min-block-size: 7rem;
+  padding: .8rem 1rem !important;
+  border-radius: 10px !important;
+  background: hsla(var(--grey-100-hsl), .55);
+  border: 1px solid var(--card-border-color) !important;
+}
+
+.task-view .details.content [contenteditable]:focus,
+.task-view .input:focus,
+.task-view .textarea:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px hsla(var(--primary-h), var(--primary-s), var(--primary-l), .25) !important;
+}
+
+/* Colonne d'actions (Ajouter un label, une date, etc.) : boutons nets */
+.action-buttons .button {
+  border-radius: 10px !important;
+  background: hsla(var(--grey-100-hsl), .8) !important;
+  border: 1px solid var(--card-border-color) !important;
+  transition: border-color .12s ease, transform .12s ease;
+}
+
+.action-buttons .button:hover {
+  border-color: var(--primary) !important;
+  transform: translateX(2px);
+}
+
+/* Commentaires : bulles lisibles */
+.task-view .comment .content {
+  background: hsla(var(--grey-100-hsl), .6);
+  border-radius: 10px;
+  padding: .6rem .9rem;
+}
+
+/* Ajout rapide (kanban, liste) : champ visible, pas un fil discret */
+.task-add .add-task-textarea,
+.add-task__field .textarea {
+  border-radius: 10px !important;
+  background: hsla(var(--grey-100-hsl), .9) !important;
+  border: 1px solid var(--card-border-color) !important;
+  min-block-size: 2.7rem;
+}
+
+.task-add .add-task-textarea:focus,
+.add-task__field .textarea:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px hsla(var(--primary-h), var(--primary-s), var(--primary-l), .25) !important;
+}
+
+.task-add .add-task-button,
+.task-add .button {
+  border-radius: 10px !important;
+}
+
+/* Bouton d'aide Quick Add Magic : visible, couleur accent */
+.quick-add-magic-trigger-btn {
+  color: var(--primary) !important;
+  opacity: 1 !important;
+}
+
+/* Sélecteurs (labels, assignés) et datepicker : raccord avec le reste */
+.multiselect,
+.multiselect .input-wrapper {
+  border-radius: 10px !important;
+}
+
+.datepicker__quick-select-date {
+  border-radius: 8px !important;
+}
