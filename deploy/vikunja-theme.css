@@ -30,7 +30,7 @@
    Tout le design est en rem : abaisser la racine resserre uniformément
    (16px -> 14px, équivalent d'un zoom navigateur à ~87%). */
 html {
-  font-size: 13px !important;
+  font-size: 12px !important;
 }
 
 /* ── Typo : stack système propre ───────────────────────────────────── */
