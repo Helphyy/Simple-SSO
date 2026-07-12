@@ -145,6 +145,43 @@ body {
   border-radius: 6px !important;
 }
 
+/* Gantt : rendre la manipulation moins pénible.
+   Les poignées de redimensionnement sont des <rect> SVG de 6px seulement,
+   quasi impossibles à attraper. On les élargit et on les affiche en
+   permanence (la géométrie SVG est surchargeable en CSS sur les
+   navigateurs modernes). */
+.gantt-resize-handle {
+  width: 11px !important;
+  opacity: 1 !important;
+  fill: var(--primary) !important;
+  stroke: var(--white) !important;
+  stroke-width: 1.5 !important;
+  cursor: col-resize !important;
+}
+
+.gantt-resize-left {
+  transform: translateX(-3px);
+}
+
+.gantt-resize-right {
+  transform: translateX(3px);
+}
+
+.gantt-resize-handle:hover {
+  width: 13px !important;
+  filter: brightness(1.15);
+}
+
+/* Barre : zone de grab plus évidente au survol */
+.gantt-bar {
+  cursor: grab;
+}
+
+.gantt-bar:hover {
+  opacity: 1 !important;
+  filter: brightness(1.08);
+}
+
 /* ── Labels : pastilles lisibles ──────────────────────────────────── */
 .tag {
   border-radius: 999px !important;
