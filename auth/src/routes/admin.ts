@@ -794,12 +794,6 @@ adminRoutes.post('/clients/:id/access', async (c) => {
   const body = await parseBodyCsrf(c);
   if (!body) return c.text('CSRF invalid', 403);
 
-  const homeUrl = typeof body.home_url === 'string' && body.home_url.trim() ? body.home_url.trim().slice(0, 500) : null;
-  if (homeUrl) {
-    try { new URL(homeUrl); } catch { return c.text(t('Invalid URL', 'URL invalide'), 400); }
-  }
-  Clients.setHomeUrl(client.id, homeUrl);
-
   const rawUserIds = Array.isArray(body.users) ? body.users : (body.users ? [body.users] : []);
   const rawGroupIds = Array.isArray(body.groups) ? body.groups : (body.groups ? [body.groups] : []);
 
@@ -823,7 +817,6 @@ adminRoutes.post('/clients/:id/access', async (c) => {
     target: client.id,
     metadata: {
       acl_count: principals.length,
-      home_url: homeUrl,
       ...(skipped.users.length || skipped.groups.length ? { skipped } : {}),
     },
     ip: getClientIp(c),
