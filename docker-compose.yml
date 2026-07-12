@@ -98,7 +98,13 @@ services:
     volumes:
       - vikunja-files:/app/vikunja/files
       - vikunja-db:/db
+      # Déploiement TLS self-signed (voir README) : monter la CA locale
+      # pour que Vikunja accepte la discovery OIDC en https.
+      # - /etc/nginx/certs/ca.crt:/certs/ca.crt:ro
     environment:
+      # Déploiement TLS self-signed : Go ne fera confiance qu'à cette CA,
+      # suffisant ici (Vikunja ne sort nulle part ailleurs en TLS).
+      # SSL_CERT_FILE: /certs/ca.crt
       VIKUNJA_SERVICE_INTERFACE: ":3002"
       VIKUNJA_SERVICE_PUBLICURL: ${VIKUNJA_PUBLIC_URL}
       VIKUNJA_SERVICE_SECRET: ${VIKUNJA_JWT_SECRET}
