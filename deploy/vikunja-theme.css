@@ -118,39 +118,17 @@ body {
   border-radius: 10px !important;
 }
 
-/* Éditeur de texte (description, commentaires) : la toolbar n'est plus
-   une carte flottante sur deux lignes, elle devient l'en-tête compact,
-   soudé à la zone de saisie. */
+/* Éditeur de texte (description, commentaires) : pas de toolbar du tout.
+   Tout passe par la commande "/" (titres, listes, code, image...) et le
+   markdown à la volée (**gras**, - liste, # titre). */
 .editor-toolbar {
-  background: hsla(var(--grey-100-hsl), .9) !important;
-  border: 1px solid var(--card-border-color) !important;
-  border-block-end: none !important;
-  border-radius: 10px 10px 0 0 !important;
-  padding: .3rem .45rem !important;
-  margin-block-end: 0 !important;
-  align-items: center;
+  display: none !important;
 }
 
-.editor-toolbar > * + * {
-  border-inline-start-color: var(--card-border-color) !important;
-}
-
-.editor-toolbar__button {
-  min-inline-size: 1.8rem !important;
-  block-size: 1.8rem !important;
-  border-radius: 6px !important;
-}
-
-.editor-toolbar__button:hover {
-  background: hsla(var(--primary-h), var(--primary-s), var(--primary-l), .16) !important;
-  color: var(--primary) !important;
-  border-color: transparent !important;
-}
-
-/* Zone de saisie soudée sous la toolbar */
+/* Zone de saisie : un bloc propre, autonome */
 .tiptap__editor {
   border: 1px solid var(--card-border-color) !important;
-  border-radius: 0 0 10px 10px !important;
+  border-radius: 10px !important;
   background: hsla(var(--grey-100-hsl), .45) !important;
   min-block-size: 8rem;
   padding: .9rem 1rem !important;
