@@ -1,0 +1,102 @@
+/*
+ * Thème custom Vikunja, injecté par nginx (sub_filter, voir README).
+ * Vikunja pilote tout par variables CSS : on override la teinte primaire
+ * et l'échelle de gris du mode sombre, puis on polit quelques composants.
+ * Rollback : retirer le <link> du sub_filter nginx, rien d'autre à défaire.
+ */
+
+/* ── Accent : violet moderne (les deux modes) ─────────────────────── */
+:root,
+.dark {
+  --primary-h: 255deg;
+  --primary-s: 72%;
+  --primary-l: 64%;
+  --primary-dark-l: 52%;
+}
+
+/* ── Mode sombre : fonds profonds et froids, meilleure hiérarchie ── */
+.dark {
+  --grey-50-hsl: 229, 22%, 7%;
+  --grey-100-hsl: 228, 18%, 11%;
+  --grey-200: hsl(228, 15%, 18%);
+  --grey-300: hsl(227, 12%, 30%);
+  --grey-400: hsl(226, 10%, 46%);
+  --grey-500-hsl: 226, 11%, 64%;
+  --grey-600: hsl(224, 12%, 78%);
+  --grey-700: hsl(222, 14%, 88%);
+  --grey-800: hsl(220, 16%, 94%);
+  --grey-900-hsl: 216, 20%, 98%;
+  --site-background: hsl(229, 22%, 7%);
+  --card-border-color: hsl(228, 14%, 17%);
+  --shadow-sm: 0 3px 10px hsla(229, 40%, 3%, .5);
+  --shadow-md: 0 8px 24px hsla(229, 40%, 3%, .55);
+}
+
+/* ── Typo : stack système propre ───────────────────────────────────── */
+body {
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Open Sans", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Coins arrondis et surfaces ───────────────────────────────────── */
+.card,
+.box,
+.modal-content,
+.notification {
+  border-radius: 14px !important;
+}
+
+.button,
+.input,
+.textarea,
+.select select {
+  border-radius: 10px !important;
+}
+
+.button.is-primary {
+  box-shadow: 0 4px 14px hsla(var(--primary-h), var(--primary-s), 40%, .35);
+}
+
+/* ── Kanban : colonnes aérées, cartes nettes ──────────────────────── */
+.bucket {
+  border-radius: 14px !important;
+  background: hsla(var(--grey-100-hsl), .75) !important;
+}
+
+.bucket .tasks .task,
+.kanban .task {
+  border-radius: 10px !important;
+  border: 1px solid var(--card-border-color);
+  box-shadow: 0 1px 4px hsla(229, 40%, 3%, .3);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+
+.bucket .tasks .task:hover,
+.kanban .task:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px hsla(229, 40%, 3%, .45);
+}
+
+/* ── Labels : pastilles lisibles ──────────────────────────────────── */
+.tag {
+  border-radius: 999px !important;
+  font-weight: 600;
+}
+
+/* ── Menu latéral et navbar : fondus dans le fond ─────────────────── */
+.navbar {
+  background: hsla(var(--grey-50-hsl), .85) !important;
+  backdrop-filter: blur(8px);
+}
+
+.menu-container,
+.namespace-container {
+  background: hsl(var(--grey-50-hsl)) !important;
+}
+
+/* ── Login : centre la carte, masque le bruit ─────────────────────── */
+.link-share-container .box,
+.auth-form {
+  border-radius: 16px !important;
+}
