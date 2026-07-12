@@ -49,19 +49,38 @@ html {
   margin-block-end: .5rem !important;
 }
 
-/* ── Header : le logo ne doit pas coller le haut de page ─────────── */
-.navbar {
-  padding-block: .5rem;
+/* ── Header : le logo ne colle pas le haut, SANS déborder ──────────
+   La hauteur passe par --navbar-height : le layout (has-navbar-fixed-top,
+   offsets kanban...) consomme cette variable, donc tout suit. */
+:root,
+.dark {
+  --navbar-height: 4.75rem;
 }
 
 .logo {
   margin-block-start: 1.25rem;
 }
 
-/* ── Typo : stack système propre ───────────────────────────────────── */
+/* ── Typo : JetBrains Mono Nerd Font (auto-hébergée, voir nginx) ──── */
+@font-face {
+  font-family: "JetBrainsMono Nerd Font";
+  src: url("/custom-fonts/JetBrainsMonoNerdFont-Regular.ttf") format("truetype");
+  font-weight: 100 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "JetBrainsMono Nerd Font";
+  src: url("/custom-fonts/JetBrainsMonoNerdFont-Bold.ttf") format("truetype");
+  font-weight: 600 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 body {
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Open Sans", Helvetica, Arial, sans-serif;
+  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", ui-monospace,
+    "Cascadia Code", Consolas, monospace;
   -webkit-font-smoothing: antialiased;
 }
 
