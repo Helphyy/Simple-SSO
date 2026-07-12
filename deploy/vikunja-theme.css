@@ -170,24 +170,28 @@ body {
   display: none !important;
 }
 
-/* Zone de saisie : un bloc propre, autonome */
+/* Lecture : le contenu s'affiche nu, sans boîte ni hauteur minimum
+   (les commentaires et descriptions ne traînent plus un grand vide). */
 .tiptap__editor {
-  border: 1px solid var(--card-border-color) !important;
-  border-radius: 10px !important;
-  background: hsla(var(--grey-100-hsl), .45) !important;
-  min-block-size: 8rem;
-  padding: .9rem 1rem !important;
+  border: none !important;
+  background: transparent !important;
+  min-block-size: 0 !important;
+  padding: .15rem 0 !important;
   margin-block-start: 0 !important;
 }
 
-.tiptap__editor:focus-within {
-  border-color: var(--primary) !important;
-  box-shadow: 0 0 0 3px hsla(var(--primary-h), var(--primary-s), var(--primary-l), .2) !important;
+/* Édition (double-clic) : là, la vraie zone de saisie apparaît */
+.tiptap__editor.tiptap__editor-is-edit-enabled {
+  border: 1px solid var(--card-border-color) !important;
+  border-radius: 10px !important;
+  background: hsla(var(--grey-100-hsl), .45) !important;
+  min-block-size: 8rem !important;
+  padding: .9rem 1rem !important;
 }
 
-/* Hors édition (lecture seule), pas de cadre autour du rendu */
-.tiptap__editor:not(:has(.editor-toolbar)):not([contenteditable]) {
-  background: transparent;
+.tiptap__editor.tiptap__editor-is-edit-enabled:focus-within {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px hsla(var(--primary-h), var(--primary-s), var(--primary-l), .2) !important;
 }
 
 /* Actions de l'éditeur (Edit / Save) : pastille discrète alignée à
