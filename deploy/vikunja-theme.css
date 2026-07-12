@@ -30,7 +30,7 @@
    Tout le design est en rem : abaisser la racine resserre uniformément
    (16px -> 14px, équivalent d'un zoom navigateur à ~87%). */
 html {
-  font-size: 12px !important;
+  font-size: 14px !important;
 }
 
 /* ── Espacements : resserrés, sans tasser ─────────────────────────── */
@@ -55,7 +55,7 @@ html {
 }
 
 .logo {
-  margin-block-start: .75rem;
+  margin-block-start: 1.25rem;
 }
 
 /* ── Typo : stack système propre ───────────────────────────────────── */
